@@ -2,7 +2,7 @@
 
 An interactive web tool for building superconducting quantum circuit models and extracting the Hamiltonian parameters needed for lattice field theory simulation.
 
-**Try it live:** [Fluxonium Circuit Builder](https://marvyn.com/Fluxonium-Circuit-Builder/)
+**Try it live:** [Quantum Circuit Builder](https://marvyn.com/Quantum-Circuit-Builder/)
 
 ## Motivation
 
