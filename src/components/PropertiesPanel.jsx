@@ -53,13 +53,13 @@ export default function PropertiesPanel({ selected, nodes, edges, onUpdateNode, 
         <div style={headerStyle}>PROPERTIES</div>
         <div style={{ marginBottom: 8, color: info.color }}>{info.label}</div>
         <label style={{ display: 'block', marginBottom: 12 }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Value ({info.unit})</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Symbol (LaTeX)</span>
           <input
-            type="number"
-            step="any"
+            type="text"
             value={edge.value}
-            onChange={(e) => onUpdateEdge(edge.id, { value: parseFloat(e.target.value) || 0 })}
-            style={inputStyle}
+            onChange={(e) => onUpdateEdge(edge.id, { value: e.target.value })}
+            placeholder={`${info.symbol}_{i}`}
+            style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
           />
         </label>
         <button onClick={onDelete} style={deleteStyle}>Delete element</button>

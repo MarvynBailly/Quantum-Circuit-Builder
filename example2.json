@@ -1,0 +1,361 @@
+{
+  "_meta": {
+    "generator": "fluxonium-circuit-builder",
+    "version": "0.2.0",
+    "exported_at": "2026-04-26T21:53:50.273Z",
+    "description": "Circuit topology exported from an interactive circuit graph."
+  },
+  "nodes": [
+    {
+      "id": 0,
+      "label": "\\phi_{0}",
+      "is_ground": false
+    },
+    {
+      "id": 1,
+      "label": "\\phi_{1}",
+      "is_ground": false
+    },
+    {
+      "id": 2,
+      "label": "\\phi_{2}",
+      "is_ground": false
+    },
+    {
+      "id": 3,
+      "label": "\\phi_{3}",
+      "is_ground": false
+    },
+    {
+      "id": 4,
+      "label": "\\phi_{4}",
+      "is_ground": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "from": 2,
+      "to": 1,
+      "type": "C",
+      "value": "C_{0}",
+      "unit": "fF"
+    },
+    {
+      "id": "e1",
+      "from": 3,
+      "to": 2,
+      "type": "C",
+      "value": "C_{1}",
+      "unit": "fF"
+    },
+    {
+      "id": "e2",
+      "from": 4,
+      "to": 0,
+      "type": "C",
+      "value": "C_{2}",
+      "unit": "fF"
+    },
+    {
+      "id": "e3",
+      "from": 1,
+      "to": 4,
+      "type": "C",
+      "value": "C_{3}",
+      "unit": "fF"
+    },
+    {
+      "id": "e4",
+      "from": 1,
+      "to": 4,
+      "type": "L",
+      "value": "L_{0}",
+      "unit": "nH"
+    },
+    {
+      "id": "e5",
+      "from": 2,
+      "to": 3,
+      "type": "JJ",
+      "value": "E_J^{0}",
+      "unit": "GHz"
+    },
+    {
+      "id": "e6",
+      "from": 1,
+      "to": 4,
+      "type": "C",
+      "value": "C_{4}",
+      "unit": "fF"
+    },
+    {
+      "id": "e7",
+      "from": 0,
+      "to": 3,
+      "type": "JJ",
+      "value": "E_J^{1}",
+      "unit": "GHz"
+    }
+  ],
+  "adjacency_matrix": [
+    [
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      3
+    ],
+    [
+      0,
+      1,
+      0,
+      2,
+      0
+    ],
+    [
+      1,
+      0,
+      2,
+      0,
+      0
+    ],
+    [
+      1,
+      3,
+      0,
+      0,
+      0
+    ]
+  ],
+  "wire_geometry": {
+    "vertices": [
+      {
+        "id": 0,
+        "x": 270,
+        "y": 270
+      },
+      {
+        "id": 1,
+        "x": 480,
+        "y": 270
+      },
+      {
+        "id": 2,
+        "x": 660,
+        "y": 510
+      },
+      {
+        "id": 3,
+        "x": 120,
+        "y": 510
+      },
+      {
+        "id": 5,
+        "x": 301.4521908200353,
+        "y": 270
+      },
+      {
+        "id": 6,
+        "x": 300,
+        "y": 150
+      },
+      {
+        "id": 7,
+        "x": 450,
+        "y": 150
+      },
+      {
+        "id": 8,
+        "x": 450.3057411158938,
+        "y": 270
+      },
+      {
+        "id": 9,
+        "x": 300.52763460701755,
+        "y": 510
+      },
+      {
+        "id": 10,
+        "x": 300,
+        "y": 600
+      },
+      {
+        "id": 11,
+        "x": 450,
+        "y": 600
+      },
+      {
+        "id": 12,
+        "x": 451.23029732891155,
+        "y": 510
+      },
+      {
+        "id": 13,
+        "x": 231.76283096808953,
+        "y": 331.1794704510568
+      },
+      {
+        "id": 14,
+        "x": 524.9643482933848,
+        "y": 329.95246439117966
+      }
+    ],
+    "segments": [
+      {
+        "id": "s4",
+        "from": 0,
+        "to": 5
+      },
+      {
+        "id": "s6",
+        "from": 5,
+        "to": 6
+      },
+      {
+        "id": "s7",
+        "from": 6,
+        "to": 7
+      },
+      {
+        "id": "s8",
+        "from": 5,
+        "to": 8
+      },
+      {
+        "id": "s9",
+        "from": 8,
+        "to": 1
+      },
+      {
+        "id": "s10",
+        "from": 7,
+        "to": 8
+      },
+      {
+        "id": "s12",
+        "from": 9,
+        "to": 3
+      },
+      {
+        "id": "s13",
+        "from": 9,
+        "to": 10
+      },
+      {
+        "id": "s14",
+        "from": 10,
+        "to": 11
+      },
+      {
+        "id": "s15",
+        "from": 2,
+        "to": 12
+      },
+      {
+        "id": "s16",
+        "from": 12,
+        "to": 9
+      },
+      {
+        "id": "s17",
+        "from": 11,
+        "to": 12
+      },
+      {
+        "id": "s18",
+        "from": 3,
+        "to": 13
+      },
+      {
+        "id": "s19",
+        "from": 13,
+        "to": 0
+      },
+      {
+        "id": "s20",
+        "from": 1,
+        "to": 14
+      },
+      {
+        "id": "s21",
+        "from": 14,
+        "to": 2
+      },
+      {
+        "id": "s22",
+        "from": 13,
+        "to": 14
+      }
+    ],
+    "components": [
+      {
+        "id": "c0",
+        "segment_id": "s18",
+        "t": 0.6710638890438805,
+        "type": "C",
+        "value": "C_{0}"
+      },
+      {
+        "id": "c1",
+        "segment_id": "s16",
+        "t": 0.5058324514782235,
+        "type": "C",
+        "value": "C_{1}"
+      },
+      {
+        "id": "c2",
+        "segment_id": "s21",
+        "t": 0.3335093446615254,
+        "type": "C",
+        "value": "C_{2}"
+      },
+      {
+        "id": "c3",
+        "segment_id": "s8",
+        "t": 0.4940950957083823,
+        "type": "C",
+        "value": "C_{3}"
+      },
+      {
+        "id": "c4",
+        "segment_id": "s7",
+        "t": 0.5,
+        "type": "L",
+        "value": "L_{0}"
+      },
+      {
+        "id": "c5",
+        "segment_id": "s14",
+        "t": 0.5,
+        "type": "JJ",
+        "value": "E_J^{0}"
+      },
+      {
+        "id": "c6",
+        "segment_id": "s22",
+        "t": 0.5,
+        "type": "C",
+        "value": "C_{4}"
+      },
+      {
+        "id": "c7",
+        "segment_id": "s15",
+        "t": 0.5,
+        "type": "JJ",
+        "value": "E_J^{1}"
+      }
+    ],
+    "next_vertex_id": 15,
+    "next_segment_id": 23,
+    "next_component_id": 8
+  },
+  "node_overrides": []
+}

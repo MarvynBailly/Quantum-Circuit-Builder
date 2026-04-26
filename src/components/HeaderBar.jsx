@@ -39,15 +39,27 @@ const primaryBtn = {
   fontFamily: 'inherit',
 };
 
-export default function HeaderBar({ theme, onClear, onToggleTheme, onExport }) {
+export default function HeaderBar({ onClear, onExport, onImport }) {
+  const fileRef = React.useRef(null);
   return (
     <header style={headerStyle}>
       <div style={titleStyle}>FLUXONIUM CIRCUIT BUILDER</div>
       <button onClick={onClear} style={{ ...ghostBtn, marginLeft: 'auto' }}>
         Clear
       </button>
-      <button onClick={onToggleTheme} style={ghostBtn}>
-        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onImport?.(f);
+          e.target.value = '';
+        }}
+      />
+      <button onClick={() => fileRef.current?.click()} style={ghostBtn}>
+        Import JSON
       </button>
       <button onClick={onExport} style={primaryBtn}>
         Export JSON

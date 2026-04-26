@@ -5,7 +5,7 @@ export const ELEMENT_TYPES = {
   C: {
     id: 'C',
     label: 'Capacitor',
-    color: '#a78bfa',
+    color: '#c4b5fd',
     unit: 'fF',
     defaultValue: 5.0,
     symbol: 'C',
@@ -13,7 +13,7 @@ export const ELEMENT_TYPES = {
   L: {
     id: 'L',
     label: 'Inductor',
-    color: '#10b981',
+    color: '#4ade80',
     unit: 'nH',
     defaultValue: 300,
     symbol: 'L',
@@ -21,7 +21,7 @@ export const ELEMENT_TYPES = {
   JJ: {
     id: 'JJ',
     label: 'Josephson Junction',
-    color: '#f59e0b',
+    color: '#fbbf24',
     unit: 'GHz',
     defaultValue: 8.0,
     symbol: 'E_J',

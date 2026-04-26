@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wire-First — Rebuilding the Circuit Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #2d2d30;
+      --bg-card: #37373d;
+      --bg-code: #222226;
+      --border: #45454d;
+      --text: #ffffff;
+      --text-dim: #d4dae4;
+      --accent-blue: #2b80ff;
+      --accent-green: #33ffff;
+      --accent-amber: #f5a623;
+      --accent-red: #ff4a6e;
+      --accent-purple: #a78bfa;
+      --node-fill: #173166;
+      --grid-dot: #45454d;
+    }
+
+    :root.light {
+      --bg: #e6e8ec;
+      --bg-card: #edeff2;
+      --bg-code: #d7dae0;
+      --border: #aeb4bd;
+      --text: #36454f;
+      --text-dim: #627180;
+      --accent-blue: #36454f;
+      --accent-green: #4a7c59;
+      --accent-amber: #b8860b;
+      --accent-red: #8b3a3a;
+      --accent-purple: #7c3aed;
+      --node-fill: #d4d8de;
+      --grid-dot: #aeb4bd;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: linear-gradient(180deg, #37373d 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.3s;
+    }
+    :root.light .hero { background: linear-gradient(180deg, #d7dae0 0%, var(--bg) 100%); }
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero .subtitle {
+      font-size: 1.1rem;
+      color: var(--text-dim);
+      max-width: 620px;
+      margin: 0 auto 24px;
+    }
+    .hero .meta { font-size: 0.85rem; color: var(--text-dim); }
+    .tech-badges {
+      display: flex; gap: 10px; justify-content: center;
+      flex-wrap: wrap; margin-top: 20px;
+    }
+    .badge {
+      padding: 4px 14px; border-radius: 100px;
+      font-size: 0.8rem; font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .badge.react   { color: #61dafb; border-color: #61dafb40; }
+    .badge.svg     { color: var(--accent-amber); border-color: #f59e0b40; }
+    .badge.uf      { color: var(--accent-purple); border-color: #a78bfa40; }
+    .badge.symbolic{ color: var(--accent-green); border-color: #10b98140; }
+    .badge.katex   { color: var(--accent-green); border-color: #10b98140; }
+
+    .container { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+    .toc {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin: 48px auto;
+      max-width: 560px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .toc h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+    .toc ol { list-style: none; counter-reset: toc; }
+    .toc li { counter-increment: toc; margin-bottom: 8px; }
+    .toc li::before {
+      content: counter(toc, decimal-leading-zero) ".";
+      color: var(--accent-blue);
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      margin-right: 10px;
+      font-size: 0.85rem;
+    }
+    .toc a { color: var(--text); text-decoration: none; font-size: 0.95rem; }
+    .toc a:hover { color: var(--accent-blue); }
+
+    .step {
+      margin: 56px 0;
+      border-left: 2px solid var(--border);
+      padding-left: 28px;
+      position: relative;
+      transition: border-color 0.3s;
+    }
+    .step::before {
+      content: attr(data-step);
+      position: absolute; left: -18px; top: 0;
+      width: 34px; height: 34px;
+      background: var(--accent-blue); color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .step h2 { font-size: 1.4rem; margin-bottom: 12px; }
+    .step p, .step ul, .step ol { margin-bottom: 14px; color: var(--text-dim); }
+    .step ul, .step ol { padding-left: 20px; }
+    .step ul li, .step ol li { margin-bottom: 6px; }
+    .step strong { color: var(--text); }
+
+    pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      margin: 14px 0 18px;
+      color: #c9d1d9;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    :root.light pre { color: #24292f; }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+    p code, li code {
+      background: var(--bg-code);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 0.82em;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .filename {
+      display: inline-block;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      padding: 4px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-bottom: -1px;
+      position: relative;
+      z-index: 1;
+    }
+
+    details {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 14px 0;
+      overflow: hidden;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    details summary {
+      padding: 14px 18px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      user-select: none;
+      display: flex; align-items: center; gap: 10px;
+      transition: background 0.15s;
+    }
+    details summary:hover { background: #ffffff08; }
+    :root.light details summary:hover { background: #00000008; }
+    details summary::before {
+      content: "\25B6";
+      font-size: 0.65rem;
+      transition: transform 0.2s;
+      color: var(--accent-blue);
+    }
+    details[open] summary::before { transform: rotate(90deg); }
+    details .detail-body { padding: 0 18px 18px; }
+    details .detail-body p { color: var(--text-dim); margin-bottom: 10px; }
+
+    .callout {
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+    .callout.tip    { background: #10b98115; border-left: 3px solid var(--accent-green); }
+    .callout.note   { background: #3b82f615; border-left: 3px solid var(--accent-blue); }
+    .callout.warn   { background: #f59e0b15; border-left: 3px solid var(--accent-amber); }
+    .callout.future { background: #a78bfa15; border-left: 3px solid var(--accent-purple); }
+    .callout .callout-title { font-weight: 600; margin-bottom: 4px; color: var(--text); }
+
+    .diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin: 18px 0;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 2;
+      color: var(--text-dim);
+      overflow-x: auto;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .diagram .arrow { color: var(--accent-blue); }
+    .diagram .label { color: var(--accent-amber); }
+    .diagram .node  { color: var(--accent-green); }
+
+    footer {
+      text-align: center;
+      padding: 48px 24px;
+      margin-top: 64px;
+      border-top: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      transition: border-color 0.3s;
+    }
+    footer a { color: var(--accent-blue); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 640px) {
+      .step { padding-left: 20px; }
+      pre { font-size: 0.75rem; padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════ HERO ════════════════════ -->
+<header class="hero">
+  <h1>Wire-First &mdash; Rebuilding the Circuit Editor Around How People Actually Draw</h1>
+  <p class="subtitle">
+    From clicking nodes to laying down wires: the redesign that made the editor feel like a real schematic tool.
+  </p>
+  <p class="meta">Marvyn B &middot; April 2026 &middot; <a href="blog.html" style="color:var(--accent-blue);text-decoration:none">part 1 &rarr;</a></p>
+  <div class="tech-badges">
+    <span class="badge react">React</span>
+    <span class="badge svg">SVG</span>
+    <span class="badge uf">Union-Find</span>
+    <span class="badge symbolic">Symbolic LaTeX</span>
+    <span class="badge katex">KaTeX</span>
+  </div>
+</header>
+
+<main class="container">
+
+<!-- ════════════════════ TOC ════════════════════ -->
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#step-1">The two mental models</a></li>
+    <li><a href="#step-2">A new data model: vertices, segments, components</a></li>
+    <li><a href="#step-3">Hover-driven click dispatch</a></li>
+    <li><a href="#step-4">Snap-to-grid with Shift override</a></li>
+    <li><a href="#step-5">Branching from anywhere on a wire</a></li>
+    <li><a href="#step-6">Components as overlays</a></li>
+    <li><a href="#step-7">Magnetic fraction snaps</a></li>
+    <li><a href="#step-8">Auto-detecting electrical nodes in real time</a></li>
+    <li><a href="#step-9">Stable identity across edits</a></li>
+    <li><a href="#step-10">Right-click, drag, polish</a></li>
+    <li><a href="#step-11">Symbolic values</a></li>
+    <li><a href="#step-12">The capacitance matrix, symbolically</a></li>
+    <li><a href="#step-13">A two-panel layout</a></li>
+    <li><a href="#step-14">Undo/redo that survives a drag</a></li>
+    <li><a href="#step-15">Pan, zoom, and resizable panels</a></li>
+    <li><a href="#step-16">Keyboard ergonomics</a></li>
+    <li><a href="#step-17">JSON round-trip with full geometry</a></li>
+    <li><a href="#step-18">What's next</a></li>
+  </ol>
+</nav>
+
+<!-- ════════════════════ STEP 1 ════════════════════ -->
+<section class="step" data-step="1" id="step-1">
+  <h2>The two mental models</h2>
+  <p>
+    The <a href="blog.html" style="color:var(--accent-blue)">original editor</a> was <strong>node-first</strong>: click to drop a node, click two nodes to connect them with a capacitor / inductor / junction. It worked, but it didn't <em>feel</em> like drawing a schematic. People draw circuits the other way around: lay down wires, then drop components on top of them. Topology comes from the wires; nodes are wherever wires meet.
+  </p>
+  <p>
+    So we kept the old mode and added a new one alongside it &mdash; a <strong>wire mode</strong>, toggled at the top of the canvas. The change isn't cosmetic: it inverts the data model, the click dispatch, and even what "a node" means. Electrical nodes are no longer placed by the user; they're <em>derived</em> from the wire graph.
+  </p>
+  <div class="callout note">
+    <div class="callout-title">Why bother with two modes?</div>
+    The schematic mode is still the fastest way to express tiny abstract topologies (a single transmon, a two-node coupler). Wire mode wins as soon as you have any branching wire that more than one component sits on. Keeping both means we never have to argue about which one is "right."
+  </div>
+</section>
+
+<!-- ════════════════════ STEP 2 ════════════════════ -->
+<section class="step" data-step="2" id="step-2">
+  <h2>A new data model: vertices, segments, components</h2>
+  <p>
+    The wire graph is three flat arrays. <strong>Vertices</strong> are wire turning-points (not electrical nodes). <strong>Segments</strong> are pure-wire connections between two vertices &mdash; always type <code>'wire'</code>. <strong>Components</strong> are an <em>overlay</em>: a component sits on a segment at parameter <code>t &in; [0,1]</code> and electrically breaks the wire there, but leaves the segment intact in the data model.
+  </p>
+
+  <span class="filename">src/wire/wireModel.js</span>
+<pre>export const EMPTY_WIRE = {
+  vertices:   [],   // { id, x, y }
+  segments:   [],   // { id, from, to }              — always pure wire
+  components: [],   // { id, segmentId, t, type, value }  — overlay
+  nextVertexId: 0, nextSegmentId: 0, nextComponentId: 0,
+};</pre>
+
+  <p>
+    The single most important consequence of that split: <strong>deleting a component leaves the wire intact</strong>. You can place a junction, change your mind, delete it, and the wire under it is still there. In the old model a component <em>was</em> the edge; deleting it ripped a hole in the topology.
+  </p>
+
+  <div class="diagram">
+    <span class="node">v0</span> &mdash;&mdash;&mdash; <span class="node">v1</span> &mdash;&mdash;&mdash; <span class="node">v2</span>
+    <br/>
+    &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="label">[ C_0 ]</span> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="label">[ E_J^0 ]</span>
+    <br/>
+    <span style="font-size:0.78rem">segments are wires; components are overlays at parameter t along them</span>
+  </div>
+</section>
+
+<!-- ════════════════════ STEP 3 ════════════════════ -->
+<section class="step" data-step="3" id="step-3">
+  <h2>Hover-driven click dispatch</h2>
+  <p>
+    In schematic mode, every node and edge had its own <code>onClick</code> handler. That doesn't translate &mdash; in wire mode you can click on empty space, on a grid intersection, on the middle of a segment, on an existing vertex, or on a component, and the meaning of the click depends on which tool is active. Adding handlers to every visual would push a lot of duplicate logic into each one.
+  </p>
+  <p>
+    Instead there is a single canvas-level <code>onClick</code>, and a single <code>computeHover()</code> function that resolves the cursor position to a <strong>hover descriptor</strong> &mdash; "what would happen if you click here right now." The click handler reads the descriptor and acts on it.
+  </p>
+
+  <span class="filename">src/App.jsx (excerpt)</span>
+<pre>// Hover priority: existing vertex &rarr; existing segment &rarr; grid / free.
+const computeHover = useCallback((pt, shiftKey) =&gt; {
+  if (mode !== 'wire') return null;
+
+  const vid = snapToVertex(verts, pt.x, pt.y);
+  if (vid !== null) return { kind: 'vertex', id: vid, ... };
+
+  if (!selectedTool) {
+    const compHit = snapToComponent(wire, pt.x, pt.y);
+    if (compHit) return { kind: 'component', id: compHit.id };
+  }
+
+  const segHit = snapToSegment(verts, segs, pt.x, pt.y);
+
+  if (selectedTool === 'wire') {
+    if (segHit) return { kind: 'segment', segmentId: segHit.id, t: segHit.t, ... };
+    if (shiftKey) return { kind: 'free', x: pt.x, y: pt.y };
+    const g = snapToGrid(pt.x, pt.y);
+    return { kind: 'grid', x: g.x, y: g.y };
+  }
+
+  if (selectedTool === 'C' || selectedTool === 'L' || selectedTool === 'JJ') {
+    if (!segHit) return null;
+    const f = snapFraction(segHit.t);
+    return { kind: 'componentOnSegment', segmentId: segHit.id, t: f.t, ... };
+  }
+  ...
+}, [mode, selectedTool, wire]);</pre>
+
+  <p>
+    The descriptor doubles as a render input &mdash; <code>WireLayer</code> reads the same hover and paints the ghost preview (a dashed circle at a grid intersection, a translucent component at a fraction snap, etc.). Click logic and preview can never disagree because they're driven by the same value.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 4 ════════════════════ -->
+<section class="step" data-step="4" id="step-4">
+  <h2>Snap-to-grid with Shift override</h2>
+  <p>
+    Wire mode uses a 30 px grid. The cursor magnetically snaps to the nearest grid intersection unless <kbd>Shift</kbd> is held, in which case it places freely. The default-snap, opt-out-with-modifier rule is the one schematic editors converge on for a reason: 95% of the time you want a clean lattice; the other 5% you want pixel control.
+  </p>
+
+  <span class="filename">src/wire/wireModel.js</span>
+<pre>export const GRID = 30;
+
+export function snapToGrid(x, y, grid = GRID) {
+  return { x: Math.round(x / grid) * grid, y: Math.round(y / grid) * grid };
+}</pre>
+
+  <p>
+    The same rule applies while dragging an existing vertex: hold <kbd>Shift</kbd> to break the snap. Tiny detail, but it means the user never has to learn two different grid behaviors.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 5 ════════════════════ -->
+<section class="step" data-step="5" id="step-5">
+  <h2>Branching from anywhere on a wire</h2>
+  <p>
+    When the wire tool is active and you hover over an existing segment, the descriptor's <code>kind</code> is <code>'segment'</code>. Clicking there has to <em>insert</em> a new vertex on that segment &mdash; the segment splits into two halves, and any components on it get reassigned to whichever half they fall into, with their <code>t</code> rescaled.
+  </p>
+
+  <span class="filename">src/wire/wireModel.js</span>
+<pre>export function splitSegmentAt(wire, segmentId, t) {
+  const seg = wire.segments.find((s) =&gt; s.id === segmentId);
+  ...
+  const halfA = { id: halfAId, from: seg.from, to: vid };
+  const halfB = { id: halfBId, from: vid, to: seg.to };
+
+  const newComponents = wire.components.map((c) =&gt; {
+    if (c.segmentId !== segmentId) return c;
+    if (c.t &lt;= t) return { ...c, segmentId: halfAId, t: t &gt; 0 ? c.t / t : 0 };
+    return         { ...c, segmentId: halfBId, t: t &lt; 1 ? (c.t - t) / (1 - t) : 1 };
+  });
+  ...
+}</pre>
+
+  <p>
+    A "ghost vertex" preview marks the would-be split point as you hover, so branching feels like a deliberate action rather than an arbitrary canvas click. Because segments and components are independent, the split is a pure topology change &mdash; no electrical-node reshuffling happens here. That comes later, automatically.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 6 ════════════════════ -->
+<section class="step" data-step="6" id="step-6">
+  <h2>Components as overlays</h2>
+  <p>
+    The renderer is where the overlay model earns its keep. A segment with two components on it is drawn as <strong>three</strong> separate wire pieces &mdash; before the first component, between the two components, after the second &mdash; with the components painted on top of the gaps. Each piece is colored by the <em>electrical</em> node it belongs to, so the user sees the topology at a glance.
+  </p>
+
+  <span class="filename">src/components/WireLayer.jsx (excerpt)</span>
+<pre>// Build slot intervals + node ids:
+// slot 0: from-vertex node — wire stretch before first component.
+// slot k (1..N-1): phantom between comps[k-1] and comps[k].
+// slot N: to-vertex node.
+const slots = [];
+if (compsOnSeg.length === 0) {
+  slots.push({ t1: 0, t2: 1, nodeId: vertexNodeId.get(s.from) });
+} else {
+  slots.push({ t1: 0, t2: compsOnSeg[0].t - halfT,
+               nodeId: vertexNodeId.get(s.from) });
+  for (let k = 1; k &lt; compsOnSeg.length; k++) {
+    const phantomKey = `gap:${compsOnSeg[k - 1].id}:${compsOnSeg[k].id}`;
+    slots.push({ t1: compsOnSeg[k - 1].t + halfT,
+                 t2: compsOnSeg[k].t - halfT,
+                 nodeId: phantomNodeIdByKey.get(phantomKey) });
+  }
+  slots.push({ t1: compsOnSeg[N-1].t + halfT, t2: 1,
+               nodeId: vertexNodeId.get(s.to) });
+}</pre>
+
+  <details>
+    <summary>Why the half-length offset?</summary>
+    <div class="detail-body">
+      <p>
+        Each component has a fixed visual length (60 px). The wire pieces stop a half-length short of each component center on either side, so the symbol's body sits cleanly in the gap with no overlapping line underneath. <code>halfT = halfLen / segmentLength</code> converts that into <code>t</code>-space so the math works on diagonal segments too.
+      </p>
+    </div>
+  </details>
+
+  <p>
+    The same <code>CircuitSymbol</code> component the schematic mode uses gets reused verbatim for the overlay. The only new thing wire mode adds is the slot math.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 7 ════════════════════ -->
+<section class="step" data-step="7" id="step-7">
+  <h2>Magnetic fraction snaps</h2>
+  <p>
+    When dropping a component on a segment, the cursor's <code>t</code> magnetically snaps to one of <strong>1/4, 1/3, 1/2, 2/3, 3/4</strong>. A small floating badge shows the fraction it snapped to. It is a tiny detail, but it is the difference between diagrams that look hand-laid and diagrams that look like someone forgot the alignment guides.
+  </p>
+
+  <span class="filename">src/wire/wireModel.js</span>
+<pre>export const FRACTIONS = [
+  { t: 1 / 4, label: '1/4' },
+  { t: 1 / 3, label: '1/3' },
+  { t: 1 / 2, label: '1/2' },
+  { t: 2 / 3, label: '2/3' },
+  { t: 3 / 4, label: '3/4' },
+];
+
+export function snapFraction(t, tol = 0.06) {
+  let best = null;
+  for (const f of FRACTIONS) {
+    const d = Math.abs(t - f.t);
+    if (d &lt; tol &amp;&amp; (best === null || d &lt; best.d)) best = { ...f, d };
+  }
+  return best ? { t: best.t, label: best.label } : { t, label: null };
+}</pre>
+</section>
+
+<!-- ════════════════════ STEP 8 ════════════════════ -->
+<section class="step" data-step="8" id="step-8">
+  <h2>Auto-detecting electrical nodes in real time</h2>
+  <p>
+    This is the core of the redesign. The user never places electrical nodes &mdash; they place wires and components, and the editor figures out the nodes. <strong>Two vertices share an electrical node iff they are connected by a path of segments that carry no components</strong>. Union-find collapses the wire graph into equivalence classes; each class becomes a node.
+  </p>
+
+  <span class="filename">src/wire/wireModel.js (excerpt)</span>
+<pre>// Union-find over vertices, only via segments with no components.
+const parent = new Map();
+vertices.forEach((v) =&gt; parent.set(v.id, v.id));
+const find = (id) =&gt; { /* path-compressed find */ };
+const union = (a, b) =&gt; { /* union by setting parent */ };
+
+for (const s of segments) {
+  if (!compsBySegment.has(s.id)) union(s.from, s.to);
+}</pre>
+
+  <p>
+    Components on the same segment are treated as <strong>in series</strong>. A segment with N components creates N+1 electrical nodes along its length: the from-vertex's node, the to-vertex's node, and N&minus;1 <em>phantom</em> nodes between adjacent components. Phantom nodes have no vertex of their own &mdash; they only exist in the analysis output.
+  </p>
+
+  <details>
+    <summary>The phantom-node walk</summary>
+    <div class="detail-body">
+<pre>let leftNodeId = vA;                       // from-vertex's node
+for (let k = 0; k &lt; comps.length; k++) {
+  const c = comps[k];
+  let rightNodeId;
+  if (k === comps.length - 1) {
+    rightNodeId = vB;                      // to-vertex's node
+  } else {
+    const phantomKey = `gap:${c.id}:${comps[k+1].id}`;
+    // ...allocate a new phantom node, position it at midpoint...
+    rightNodeId = nodeId++;
+  }
+  edges.push({ id: `e${edgeCounter++}`,
+               from: leftNodeId, to: rightNodeId,
+               type: c.type, value: c.value,
+               sourceComponentId: c.id });
+  leftNodeId = rightNodeId;
+}</pre>
+    </div>
+  </details>
+
+  <p>
+    Detection runs on every wire mutation via a single <code>useEffect</code>, with a ref carrying the previous result so the effect doesn't depend on its own output:
+  </p>
+
+  <span class="filename">src/App.jsx</span>
+<pre>const prevAnalysisRef = useRef({ nodes: [], edges: [] });
+useEffect(() =&gt; { prevAnalysisRef.current = { nodes: wireNodes, edges: wireEdges }; },
+          [wireNodes, wireEdges]);
+
+useEffect(() =&gt; {
+  const result = autoDetectNodes(wire, prevAnalysisRef.current);
+  setWireNodes(result.nodes);
+  setWireEdges(result.edges);
+}, [wire]);</pre>
+</section>
+
+<!-- ════════════════════ STEP 9 ════════════════════ -->
+<section class="step" data-step="9" id="step-9">
+  <h2>Stable identity across edits</h2>
+  <p>
+    Auto-detection regenerates nodes from scratch on every mutation. That's fine for the topology, but it would be miserable if the user's customizations (a custom label, a custom color, "this one is ground") got reshuffled every time they added a wire. Each node needs a <strong>stable identity</strong> that survives unrelated edits.
+  </p>
+  <p>
+    Two carry-forward keys do this. For real (vertex-backed) nodes the key is the <strong>smallest vertex id</strong> in the equivalence class &mdash; an "anchor." Add a vertex to the class and the anchor doesn't change. Remove the anchor and a new one takes over, but unrelated nodes are untouched. For phantom nodes the key is the <strong>pair of flanking component ids</strong>, since those define the gap.
+  </p>
+
+  <span class="filename">src/wire/wireModel.js (excerpt)</span>
+<pre>const carry = prevByAnchor.get(anchor);
+let label = null;
+let userLabel = false;
+if (carry?.userLabel &amp;&amp; carry.label) {
+  label = carry.label;
+  userLabel = true;
+  usedLabels.add(label);
+}
+const color = carry?.userColor
+  ? carry.color
+  : NODE_PALETTE[paletteIndexForKey(`v:anchor:${anchor}`)];</pre>
+
+  <p>
+    Auto-assigned labels (<code>\phi_0</code>, <code>\phi_1</code>, ...) reflow as topology changes; user-set labels stick. The <code>userLabel</code> / <code>userColor</code> flags are the dividing line. Default colors are picked by hashing the anchor key into a palette, so unrelated parts of the graph don't shuffle when one part changes.
+  </p>
+
+  <details>
+    <summary>The unique-\phi allocator</summary>
+    <div class="detail-body">
+<pre>// Final pass: assign auto labels, skipping any \phi_{k} already in use.
+let autoIdx = 0;
+for (const n of nodes) {
+  if (n.label) continue;
+  while (usedLabels.has(`\\phi_{${autoIdx}}`)) autoIdx++;
+  n.label = `\\phi_{${autoIdx}}`;
+  usedLabels.add(n.label);
+  autoIdx++;
+}</pre>
+      <p>
+        The user might rename one of their nodes to <code>\phi_5</code>; the allocator skips that index when handing out auto labels, so we never end up with two nodes both showing <code>\phi_5</code>.
+      </p>
+    </div>
+  </details>
+</section>
+
+<!-- ════════════════════ STEP 10 ════════════════════ -->
+<section class="step" data-step="10" id="step-10">
+  <h2>Right-click, drag, polish</h2>
+  <p>
+    Three small things that disproportionately affect how the editor <em>feels</em>:
+  </p>
+  <ul>
+    <li><strong>Right-click clears the active tool.</strong> No "select the cursor tool to deselect" minigame &mdash; right-click anywhere on the canvas drops you back to selection mode.</li>
+    <li><strong>Wire vertices grab on mousedown</strong> and snap to the grid as you drag (or move freely with <kbd>Shift</kbd>). The same grid logic the placement code uses.</li>
+    <li><strong>Hover preview always renders the descriptor.</strong> A ghost vertex at the grid snap, a dashed crosshair on the intersection, a translucent component at the fraction snap. You see the click before you commit it.</li>
+  </ul>
+  <div class="callout tip">
+    <div class="callout-title">Single source of hover truth</div>
+    The fact that previews and click logic both read from <code>computeHover()</code> means every "what would happen if I click here" is shown <em>before</em> you click. There is no UI state that lives only inside the click handler.
+  </div>
+</section>
+
+<!-- ════════════════════ STEP 11 ════════════════════ -->
+<section class="step" data-step="11" id="step-11">
+  <h2>Symbolic values</h2>
+  <p>
+    Components in wire mode hold <strong>LaTeX strings</strong>, not numbers. A new capacitor is born as <code>C_{0}</code>, the next as <code>C_{1}</code>, the next junction as <code>E_J^{0}</code>. The matrices the analysis panel renders are then real symbolic expressions &mdash; <code>C_0 + C_1</code> on a diagonal, <code>-C_0</code> off-diagonal, and so on.
+  </p>
+
+  <span class="filename">src/wire/wireModel.js</span>
+<pre>export function nextComponentSymbol(components, type) {
+  const sym = ELEMENT_TYPES[type].symbol;       // 'C' | 'L' | 'E_J'
+  const used = new Set(components.map((c) =&gt; c.value));
+  let k = 0, candidate;
+  do {
+    candidate = type === 'JJ' ? `E_J^{${k}}` : `${sym}_{${k}}`;
+    k++;
+  } while (used.has(candidate));
+  return candidate;
+}</pre>
+
+  <p>
+    Renaming through the properties panel just sets <code>component.value</code> to whatever LaTeX the user types. The allocator skips anything currently in use, so renaming <code>C_2</code> to <code>C_a</code> frees up <code>C_2</code> for the next auto-named capacitor.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 12 ════════════════════ -->
+<section class="step" data-step="12" id="step-12">
+  <h2>The capacitance matrix, symbolically</h2>
+  <p>
+    With symbolic values flowing all the way through the edge list, the capacitance matrix is built directly from them. Each cell is an array of signed terms; a tiny formatter renders the array as LaTeX.
+  </p>
+
+  <span class="filename">src/physics/hamiltonian.js</span>
+<pre>export function capacitanceMatrix(nodes, edges) {
+  const sorted = [...nodes].sort((a, b) =&gt; a.id - b.id);
+  const idx = {};
+  sorted.forEach((n, i) =&gt; (idx[n.id] = i));
+  const cells = Array.from({ length: N }, () =&gt;
+    Array.from({ length: N }, () =&gt; []));
+
+  for (const e of edges) {
+    if (e.type !== 'C') continue;
+    const i = idx[e.from], j = idx[e.to];
+    if (i === j) continue;
+    const term = String(e.value);
+    cells[i][i].push({ sign: '+', term });
+    cells[j][j].push({ sign: '+', term });
+    cells[i][j].push({ sign: '-', term });
+    cells[j][i].push({ sign: '-', term });
+  }
+  return { cells, nodeList: sorted };
+}
+
+export function formatSymbolicSum(parts) {
+  if (parts.length === 0) return '0';
+  return parts.map((p, i) =&gt; {
+    if (i === 0) return p.sign === '-' ? `-${p.term}` : p.term;
+    return p.sign === '-' ? ` - ${p.term}` : ` + ${p.term}`;
+  }).join('');
+}</pre>
+
+  <p>
+    The analysis panel then shows the adjacency matrix and the capacitance matrix side by side: counts on the left, symbols on the right, both regenerated live as the wire graph changes.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 13 ════════════════════ -->
+<section class="step" data-step="13" id="step-13">
+  <h2>A two-panel layout</h2>
+  <p>
+    The single right-side panel was getting cramped. Wire mode introduces an editable list of <em>identities</em> &mdash; the auto-detected node names, colors, and ground flags &mdash; that didn't sit naturally next to capacitance matrices and Hamiltonians. So we split:
+  </p>
+  <ul>
+    <li><strong>Left panel</strong> &mdash; <code>NodeLabelsPanel</code>: one row per electrical node, with rename / color / ground controls. This is the answer to "who am I looking at?"</li>
+    <li><strong>Right panel</strong> &mdash; <code>HamiltonianPanel</code>: adjacency, capacitance, energies, exported parameters. The answer to "what does it compute?"</li>
+  </ul>
+  <p>
+    The canvas sits in the middle. Identity on one side, physics on the other, drawing surface in between. Reading left-to-right matches how you actually think about the circuit: name the nodes, draw the topology, read off the matrices.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 14 ════════════════════ -->
+<section class="step" data-step="14" id="step-14">
+  <h2>Undo/redo that survives a drag</h2>
+  <p>
+    A wire-first editor makes <em>more</em> small mutations than the schematic version did &mdash; every grid click is a vertex, every component drop is an overlay insert, every segment hover-and-click is a split. Without undo, one stray click on a complex diagram is a disaster. With naive undo, dragging a vertex 80 pixels writes 80 history entries and "undo" feels broken.
+  </p>
+  <p>
+    The hook keeps both modes' state under one roof and pauses recording for the duration of a drag, so a drag collapses into a single entry. A snapshot ref on each render diffs against the current snapshot before pushing, so no-op rerenders don't pollute history. The stack is capped at 100.
+  </p>
+
+  <span class="filename">src/hooks/useHistory.js (excerpt)</span>
+<pre>useEffect(() =&gt; {
+  if (skipRef.current) { skipRef.current = false; sync(); return; }
+  if (dragging !== null) return;                    // pause during drags
+
+  const h = historyRef.current;
+  const cur = h.stack[h.index];
+  if (cur &amp;&amp; sameSnapshot(cur, nodes, edges, wire, wireNodes, wireEdges)) return;
+
+  h.stack = h.stack.slice(0, h.index + 1);
+  h.stack.push(snapshot(nodes, edges, wire, wireNodes, wireEdges));
+  h.index = h.stack.length - 1;
+  if (h.stack.length &gt; MAX_HISTORY) { h.stack.shift(); h.index--; }
+  sync();
+}, [nodes, edges, wire, wireNodes, wireEdges, dragging, sync]);</pre>
+
+  <p>
+    The <code>skipRef</code> flag exists because <em>restoring</em> a snapshot triggers the same effect that records snapshots. Without the skip, undo would push the just-restored state as a new history entry and redo would never work.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 15 ════════════════════ -->
+<section class="step" data-step="15" id="step-15">
+  <h2>Pan, zoom, and resizable panels</h2>
+  <p>
+    A single-screen editor was fine for a transmon. As soon as you draw a multi-loop fluxonium with a half-dozen named nodes the canvas runs out of room. Three small viewport tools fix it without reaching for a layout library:
+  </p>
+  <ul>
+    <li><strong>Pan</strong> by middle-click or background drag, with a 3 px deadzone so a normal click doesn't accidentally start a pan.</li>
+    <li><strong>Zoom</strong> with the wheel, clamped to <code>[0.1, 10]</code>, anchored on the cursor so the point under the mouse stays fixed.</li>
+    <li><strong>Fit view</strong> &mdash; one button auto-zooms and centers the bounding box of all nodes with padding.</li>
+  </ul>
+  <p>
+    Both side panels are independently resizable. The left (<code>NodeLabelsPanel</code>) and right (<code>HamiltonianPanel</code>) each have their own drag controller (<code>useResizablePanel</code>) clamped to <code>[240, 900]</code> px. Symbolic capacitance matrices grow wide with circuit size; the right panel needs to grow with them.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 16 ════════════════════ -->
+<section class="step" data-step="16" id="step-16">
+  <h2>Keyboard ergonomics</h2>
+  <p>
+    Tool-driven editors live or die by their keyboard layer. The shortcuts here are deliberately boring &mdash; the same ones every drawing app uses, so there is nothing new to learn:
+  </p>
+  <ul>
+    <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> &mdash; undo / redo.</li>
+    <li><kbd>Esc</kbd> &mdash; clear the active tool, then deselect (two presses to fully reset).</li>
+    <li><kbd>Delete</kbd> / <kbd>Backspace</kbd> &mdash; remove the current selection.</li>
+    <li><kbd>Shift</kbd> &mdash; the universal "break the snap" modifier (placement, drags, fraction snaps).</li>
+  </ul>
+  <p>
+    The handler refuses to fire while focus is inside an <code>&lt;input&gt;</code> or <code>&lt;textarea&gt;</code>, so renaming a node to <code>\phi_{\text{a}}</code> doesn't accidentally undo the last topology change.
+  </p>
+  <p>
+    A small companion in the toolbar: a <strong>show/hide labels</strong> toggle that suppresses the symbolic component names (<code>C_0</code>, <code>E_J^1</code>, ...) on the canvas. Useful when you're laying down a dense diagram and want the geometry to read first.
+  </p>
+</section>
+
+<!-- ════════════════════ STEP 17 ════════════════════ -->
+<section class="step" data-step="17" id="step-17">
+  <h2>JSON round-trip with full geometry</h2>
+  <p>
+    Export is the moment of truth for a data model: anything you can't serialize back into the same diagram is a bug in the model. The wire-first model serializes cleanly because it already <em>is</em> three flat arrays. The export bundles the analysis-level <code>nodes</code> / <code>edges</code> (what downstream solvers consume), the full <code>wire_geometry</code> (vertices, segments, components with their <code>t</code>), and a small <code>node_overrides</code> list capturing only the user-customized labels, colors, and ground flags.
+  </p>
+
+  <span class="filename">src/circuit/exportJSON.js (excerpt)</span>
+<pre>if (extra.wire) {
+  payload.wire_geometry = {
+    vertices: extra.wire.vertices.map((v) =&gt; ({ id: v.id, x: v.x, y: v.y })),
+    segments: extra.wire.segments.map((s) =&gt; ({ id: s.id, from: s.from, to: s.to })),
+    components: extra.wire.components.map((c) =&gt; ({
+      id: c.id, segment_id: c.segmentId, t: c.t, type: c.type, value: c.value,
+    })),
+    next_vertex_id: extra.wire.nextVertexId, ...
+  };
+
+  if (extra.wireNodes) {
+    payload.node_overrides = extra.wireNodes
+      .filter((n) =&gt; n.userLabel || n.userColor || n.isGround)
+      .map((n) =&gt; ({
+        anchor: n.vertexIds?.length ? Math.min(...n.vertexIds) : null,
+        phantom_key: n.phantomKey || null,
+        label: n.userLabel ? n.label : undefined,
+        color:  n.userColor ? n.color : undefined,
+        is_ground: n.isGround || undefined,
+      }));
+  }
+}</pre>
+
+  <p>
+    Import auto-detects the format: a payload with <code>wire_geometry</code> rebuilds the wire model and reapplies overrides keyed by anchor (smallest vertex id) and phantom key (the same identity scheme auto-detection uses). A payload without it is treated as a schematic export and falls back to circle layout if no <code>node_positions</code> are provided. One file format covers both modes.
+  </p>
+
+  <div class="callout tip">
+    <div class="callout-title">Why store only overrides, not all node state?</div>
+    Auto-detection regenerates nodes deterministically from the wire graph, so storing every node's auto-assigned <code>\phi_k</code> would be redundant &mdash; and worse, it would freeze label assignments in the file even if the graph topology changes after import. Persisting only what the user explicitly set lets the rest reflow.
+  </div>
+</section>
+
+<!-- ════════════════════ STEP 18 ════════════════════ -->
+<section class="step" data-step="18" id="step-18">
+  <h2>What's next</h2>
+  <p>
+    Multi-component series with virtual mid-segment nodes already work. The remaining items live in the gap between "topology" and "Hamiltonian numbers":
+  </p>
+  <ul>
+    <li><strong>External flux <code>&Phi;_ext</code> per loop.</strong> Detect cycles in the wire graph that contain at least one junction; let the user attach a flux to each one.</li>
+    <li><strong>Gate charge <code>n_g</code> per node.</strong> Per-node offset that enters as a shift in the conjugate number operator.</li>
+    <li><strong>Numeric-substitution toggle.</strong> Today the matrices are symbolic. A toggle would let the user enter actual GHz / fF / nH values and read back numerical capacitance, charging energies, and a fully evaluated Hamiltonian.</li>
+  </ul>
+  <div class="callout future">
+    <div class="callout-title">The unifying lens</div>
+    All three sit on top of the same wire-first foundation. Flux loops are cycles in the segment graph; gate charges are per-node attributes already carried through the auto-detect; numeric substitution is just a second formatter on the existing symbolic terms. None of them ask the data model to change &mdash; that is the point of having gotten the model right.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>Built with React, SVG, and a stubborn refusal to add a diagram library. Source on <a href="https://github.com/marvyn-b">GitHub</a>.</p>
+  <p style="margin-top:8px"><a href="blog.html">&larr; Part 1: Building a Quantum Circuit Editor from Scratch</a></p>
+</footer>
+
+</body>
+</html>

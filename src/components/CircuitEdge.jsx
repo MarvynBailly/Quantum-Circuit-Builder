@@ -66,13 +66,7 @@ export default function CircuitEdge({ edge, from, to, isSelected, showLabel, onC
       <CircuitSymbol type={edge.type} x1={from.x} y1={from.y} x2={to.x} y2={to.y} />
       {showLabel && (
         <g transform={`translate(${label.x},${label.y}) rotate(${label.angle})`}>
-          <SvgLatex
-            text={`${info.symbol} = ${edge.value}\\text{ ${info.unit}}`}
-            x={0}
-            y={0}
-            fontSize={11}
-            color="var(--text-primary)"
-          />
+          <SvgLatex text={String(edge.value)} x={0} y={0} fontSize={11} color={info.color} />
         </g>
       )}
     </g>

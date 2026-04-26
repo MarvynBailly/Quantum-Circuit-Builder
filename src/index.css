@@ -2,17 +2,17 @@
  * Dark theme — "Tech Innovation"
  * ========================================================================= */
 :root {
-    --bg-primary: #2d2d30;
-    --bg-secondary: #6b6b6b;
-    --bg-panel: #2a2a2e;
-    --bg-card: #37373d;
-    --bg-input: #222226;
-    --border: #45454d;
-    --border-subtle: #32323a;
+    --bg-primary: #3a3a40;
+    --bg-secondary: #7a7a82;
+    --bg-panel: #3d3d44;
+    --bg-card: #4a4a52;
+    --bg-input: #2e2e34;
+    --border: #55555f;
+    --border-subtle: #424249;
     --text-primary: #ffffff;
-    --text-secondary: #d4dae4;
-    --text-muted: #9aa3b2;
-    --text-dim: #5a6070;
+    --text-secondary: #e6ebf2;
+    --text-muted: #bac2ce;
+    --text-dim: #6e7585;
     --accent-blue: #2b80ff;
     --accent-green: #33ffff;
     --accent-amber: #f5a623;

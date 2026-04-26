@@ -30,10 +30,26 @@ function toolButtonStyle(active, color) {
   };
 }
 
+function modeButtonStyle(active) {
+  return {
+    padding: '6px 12px',
+    border: '1px solid var(--border)',
+    borderRadius: 6,
+    background: active ? 'var(--tool-active-bg)' : 'transparent',
+    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontFamily: 'var(--font-mono)',
+  };
+}
+
 export default function Toolbar({
+  mode,
+  onSetMode,
   selectedTool,
   onSelectTool,
   connectFrom,
+  drawingFromVertexId,
   canUndo,
   canRedo,
   onUndo,
@@ -42,16 +58,47 @@ export default function Toolbar({
   onToggleLabels,
   onResetView,
 }) {
+  const isWire = mode === 'wire';
+
   return (
     <div style={barStyle}>
+      <span style={labelStyle}>MODE:</span>
+      <div style={{ display: 'flex', gap: 0 }}>
+        <button
+          style={{ ...modeButtonStyle(isWire), borderRadius: '6px 0 0 6px' }}
+          onClick={() => onSetMode('wire')}
+          title="Lay down wires first, then drop components"
+        >
+          Wire
+        </button>
+        <button
+          style={{ ...modeButtonStyle(!isWire), borderRadius: '0 6px 6px 0', borderLeft: 'none' }}
+          onClick={() => onSetMode('schematic')}
+          title="Place nodes, then connect them"
+        >
+          Legacy
+        </button>
+      </div>
+
+      <span style={{ color: 'var(--border)', margin: '0 4px' }}>|</span>
+
       <span style={labelStyle}>TOOLS:</span>
 
-      <button
-        style={toolButtonStyle(selectedTool === 'node')}
-        onClick={() => onSelectTool('node')}
-      >
-        Node
-      </button>
+      {isWire ? (
+        <button
+          style={toolButtonStyle(selectedTool === 'wire')}
+          onClick={() => onSelectTool('wire')}
+        >
+          Wire
+        </button>
+      ) : (
+        <button
+          style={toolButtonStyle(selectedTool === 'node')}
+          onClick={() => onSelectTool('node')}
+        >
+          Node
+        </button>
+      )}
 
       {Object.values(ELEMENT_TYPES).map((t) => (
         <button
@@ -80,8 +127,23 @@ export default function Toolbar({
         Redo
       </button>
 
-      {connectFrom !== null && (
+      {!isWire && connectFrom !== null && (
         <span style={{ fontSize: 12, color: 'var(--accent-amber)' }}>Click target node…</span>
+      )}
+      {isWire && selectedTool === 'wire' && drawingFromVertexId === null && (
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          Click to start a wire — snaps to grid (hold Shift to free-place)
+        </span>
+      )}
+      {isWire && selectedTool === 'wire' && drawingFromVertexId !== null && (
+        <span style={{ fontSize: 12, color: 'var(--accent-amber)' }}>
+          Click to extend · snap to a vertex to close · Shift = free
+        </span>
+      )}
+      {isWire && (selectedTool === 'C' || selectedTool === 'L' || selectedTool === 'JJ') && (
+        <span style={{ fontSize: 12, color: 'var(--accent-amber)' }}>
+          Click anywhere on a wire — snaps to ¼, ⅓, ½, ⅔, ¾
+        </span>
       )}
 
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>

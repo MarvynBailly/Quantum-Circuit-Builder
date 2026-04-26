@@ -7,7 +7,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * the panel's left edge) and reads `width` to size the panel. `isResizing`
  * lets other mouse handlers bail out while a resize drag is active.
  */
-export function useResizablePanel({ initialWidth = 380, min = 240, max = 900 } = {}) {
+export function useResizablePanel({
+  initialWidth = 380,
+  min = 240,
+  max = 900,
+  side = 'right',
+} = {}) {
   const [width, setWidth] = useState(initialWidth);
   const resizeRef = useRef(null);
 
@@ -24,7 +29,8 @@ export function useResizablePanel({ initialWidth = 380, min = 240, max = 900 } =
     const onMove = (e) => {
       if (!resizeRef.current) return;
       const dx = e.clientX - resizeRef.current.startX;
-      const next = resizeRef.current.startWidth - dx;
+      const next =
+        side === 'left' ? resizeRef.current.startWidth + dx : resizeRef.current.startWidth - dx;
       setWidth(Math.min(Math.max(next, min), max));
     };
     const onUp = () => {
@@ -36,7 +42,7 @@ export function useResizablePanel({ initialWidth = 380, min = 240, max = 900 } =
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [min, max]);
+  }, [min, max, side]);
 
   const isResizing = useCallback(() => resizeRef.current !== null, []);
 

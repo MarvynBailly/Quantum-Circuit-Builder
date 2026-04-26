@@ -1,0 +1,170 @@
+{
+  "_meta": {
+    "generator": "fluxonium-circuit-builder",
+    "version": "0.2.0",
+    "exported_at": "2026-04-26T21:23:54.390Z",
+    "description": "Circuit topology exported from an interactive circuit graph."
+  },
+  "nodes": [
+    {
+      "id": 0,
+      "label": "\\phi_{0}",
+      "is_ground": false
+    },
+    {
+      "id": 1,
+      "label": "\\phi_{1}",
+      "is_ground": false
+    },
+    {
+      "id": 2,
+      "label": "\\phi_{2}",
+      "is_ground": false
+    },
+    {
+      "id": 3,
+      "label": "\\phi_{3}",
+      "is_ground": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "from": 3,
+      "to": 0,
+      "type": "C",
+      "value": "C_{0}",
+      "unit": "fF"
+    },
+    {
+      "id": "e1",
+      "from": 2,
+      "to": 3,
+      "type": "C",
+      "value": "C_{1}",
+      "unit": "fF"
+    },
+    {
+      "id": "e2",
+      "from": 1,
+      "to": 2,
+      "type": "C",
+      "value": "C_{2}",
+      "unit": "fF"
+    },
+    {
+      "id": "e3",
+      "from": 0,
+      "to": 1,
+      "type": "C",
+      "value": "C_{3}",
+      "unit": "fF"
+    }
+  ],
+  "adjacency_matrix": [
+    [
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0
+    ]
+  ],
+  "wire_geometry": {
+    "vertices": [
+      {
+        "id": 0,
+        "x": 480,
+        "y": 140
+      },
+      {
+        "id": 1,
+        "x": 660,
+        "y": 510
+      },
+      {
+        "id": 2,
+        "x": 450,
+        "y": 510
+      },
+      {
+        "id": 3,
+        "x": 300,
+        "y": 320
+      }
+    ],
+    "segments": [
+      {
+        "id": "s0",
+        "from": 3,
+        "to": 0
+      },
+      {
+        "id": "s1",
+        "from": 2,
+        "to": 3
+      },
+      {
+        "id": "s2",
+        "from": 1,
+        "to": 2
+      },
+      {
+        "id": "s3",
+        "from": 0,
+        "to": 1
+      }
+    ],
+    "components": [
+      {
+        "id": "c0",
+        "segment_id": "s0",
+        "t": 0.5,
+        "type": "C",
+        "value": "C_{0}"
+      },
+      {
+        "id": "c1",
+        "segment_id": "s1",
+        "t": 0.5,
+        "type": "C",
+        "value": "C_{1}"
+      },
+      {
+        "id": "c2",
+        "segment_id": "s2",
+        "t": 0.5,
+        "type": "C",
+        "value": "C_{2}"
+      },
+      {
+        "id": "c3",
+        "segment_id": "s3",
+        "t": 0.5,
+        "type": "C",
+        "value": "C_{3}"
+      }
+    ],
+    "next_vertex_id": 5,
+    "next_segment_id": 4,
+    "next_component_id": 4
+  },
+  "node_overrides": []
+}
