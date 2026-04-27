@@ -69,7 +69,41 @@ function CapacitanceMatrix({ nodes, edges }) {
   );
 }
 
-function HamiltonianPanel({ nodes, edges, width = 380, onResizeStart }) {
+function HamiltonianPanel({
+  nodes,
+  edges,
+  width = 380,
+  onResizeStart,
+  collapsed = false,
+  onToggleCollapsed,
+}) {
+  if (collapsed) {
+    return (
+      <div
+        style={{
+          width: 28,
+          borderLeft: '1px solid var(--border)',
+          background: 'var(--bg-panel)',
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          paddingTop: 12,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title="Expand circuit analysis"
+          style={collapseToggleStyle}
+        >
+          ◀
+        </button>
+        <div style={collapsedLabelStyle}>CIRCUIT ANALYSIS</div>
+      </div>
+    );
+  }
+
   const adj = adjacencyMatrix(nodes, edges);
 
   return (
@@ -101,14 +135,33 @@ function HamiltonianPanel({ nodes, edges, width = 380, onResizeStart }) {
       />
       <div
         style={{
-          fontWeight: 600,
-          color: 'var(--accent-amber)',
-          fontSize: 11,
-          letterSpacing: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
           marginBottom: 16,
         }}
       >
-        CIRCUIT ANALYSIS
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            title="Collapse panel"
+            style={collapseToggleStyle}
+          >
+            ▶
+          </button>
+        )}
+        <div
+          style={{
+            fontWeight: 600,
+            color: 'var(--accent-amber)',
+            fontSize: 11,
+            letterSpacing: 1,
+            flex: 1,
+          }}
+        >
+          CIRCUIT ANALYSIS
+        </div>
       </div>
 
       {adj.nodeList.length > 0 ? (
@@ -175,6 +228,31 @@ const thStyle = {
 const tdStyle = {
   padding: '4px 8px',
   fontSize: 11,
+};
+
+const collapseToggleStyle = {
+  width: 22,
+  height: 22,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  border: '1px solid var(--border)',
+  borderRadius: 4,
+  color: 'var(--text-secondary)',
+  cursor: 'pointer',
+  fontSize: 11,
+  padding: 0,
+};
+
+const collapsedLabelStyle = {
+  marginTop: 12,
+  color: 'var(--text-secondary)',
+  fontSize: 10,
+  letterSpacing: 1,
+  fontWeight: 600,
+  writingMode: 'vertical-rl',
+  transform: 'rotate(180deg)',
 };
 
 export default React.memo(HamiltonianPanel);

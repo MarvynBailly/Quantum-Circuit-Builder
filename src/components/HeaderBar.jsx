@@ -39,12 +39,19 @@ const primaryBtn = {
   fontFamily: 'inherit',
 };
 
-export default function HeaderBar({ onClear, onExport, onImport }) {
+export default function HeaderBar({ onClear, onExport, onImport, onOpenHelp }) {
   const fileRef = React.useRef(null);
   return (
     <header style={headerStyle}>
       <div style={titleStyle}>QUANTUM CIRCUIT BUILDER</div>
-      <button onClick={onClear} style={{ ...ghostBtn, marginLeft: 'auto' }}>
+      <button
+        onClick={onOpenHelp}
+        style={{ ...ghostBtn, marginLeft: 'auto' }}
+        title="Show shortcuts and tutorial"
+      >
+        ? Help
+      </button>
+      <button onClick={onClear} style={ghostBtn}>
         Clear
       </button>
       <input

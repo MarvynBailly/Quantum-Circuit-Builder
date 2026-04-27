@@ -7,6 +7,7 @@ import { useEffect } from 'react';
  *   Ctrl/Cmd+C            → onCopy()
  *   Ctrl/Cmd+V            → onPaste()
  *   Ctrl/Cmd+Q            → onRotate()        (Shift inverts direction)
+ *   Ctrl/Cmd+M            → onMirror('horizontal')   (Shift = vertical)
  *   Escape                → onEscape()
  *   Delete / Backspace    → onDelete()
  *
@@ -22,6 +23,7 @@ export function useKeyboardShortcuts({
   onCopy,
   onPaste,
   onRotate,
+  onMirror,
 }) {
   useEffect(() => {
     const handler = (e) => {
@@ -66,10 +68,17 @@ export function useKeyboardShortcuts({
         if (!onRotate) return;
         e.preventDefault();
         onRotate(e.shiftKey);
+        return;
+      }
+      if (mod && (e.key === 'm' || e.key === 'M')) {
+        if (inInput) return;
+        if (!onMirror) return;
+        e.preventDefault();
+        onMirror(e.shiftKey ? 'vertical' : 'horizontal');
       }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [undo, redo, onEscape, onDelete, onCopy, onPaste, onRotate]);
+  }, [undo, redo, onEscape, onDelete, onCopy, onPaste, onRotate, onMirror]);
 }

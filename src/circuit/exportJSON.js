@@ -17,6 +17,9 @@ import { COMPONENT_LENGTH } from '../wire/index.js';
  * @param {Object} [extra.wire]            - full wire model (wire mode)
  * @param {Array}  [extra.wireNodes]       - electrical-node array for label/ground carry
  * @param {Array}  [extra.schematicNodes]  - schematic nodes with x/y (schematic mode)
+ * @param {Object} [extra.view]            - canvas view state (theme, edge-label toggle,
+ *                                           pan, zoom) so a re-import reproduces the
+ *                                           sender's framing and display options
  */
 export function buildExportPayload(nodes, edges, extra = {}) {
   const adj = adjacencyMatrix(nodes, edges);
@@ -26,7 +29,7 @@ export function buildExportPayload(nodes, edges, extra = {}) {
   const payload = {
     _meta: {
       generator: 'quantum-circuit-builder',
-      version: '0.3.0',
+      version: '0.4.0',
       exported_at: new Date().toISOString(),
       description: 'Circuit topology exported from an interactive circuit graph.',
     },
@@ -89,6 +92,16 @@ export function buildExportPayload(nodes, edges, extra = {}) {
           };
         });
     }
+  }
+
+  if (extra.view) {
+    const v = extra.view;
+    payload.view = {
+      theme: v.theme,
+      show_edge_labels: v.showEdgeLabels,
+      pan: v.pan ? { x: v.pan.x, y: v.pan.y } : undefined,
+      zoom: v.zoom,
+    };
   }
 
   return payload;
@@ -199,15 +212,29 @@ function convertOldWireGeometry(g) {
   };
 }
 
+function parseView(payload) {
+  if (!payload?.view) return null;
+  const v = payload.view;
+  return {
+    theme: v.theme,
+    showEdgeLabels: v.show_edge_labels,
+    pan: v.pan ? { x: v.pan.x, y: v.pan.y } : null,
+    zoom: typeof v.zoom === 'number' ? v.zoom : null,
+  };
+}
+
 /**
  * Reverse of buildExportPayload. Returns one of:
- *   { kind: 'wire', wire, nodeOverrides }
- *   { kind: 'schematic', nodes, edges, nextNodeId, nextEdgeId }
+ *   { kind: 'wire', wire, nodeOverrides, view }
+ *   { kind: 'schematic', nodes, edges, nextNodeId, nextEdgeId, view }
  *
- * Detects and converts the old overlay-based wire format
- * (segments + components-with-segment_id) on the fly.
+ * `view` is the optional canvas view block (theme, edge-label toggle,
+ * pan, zoom) — null when the payload doesn't carry one. Detects and
+ * converts the old overlay-based wire format (segments +
+ * components-with-segment_id) on the fly.
  */
 export function parseImportPayload(payload) {
+  const view = parseView(payload);
   if (payload?.wire_geometry) {
     const g = payload.wire_geometry;
     const isOldFormat =
@@ -252,6 +279,7 @@ export function parseImportPayload(payload) {
       kind: 'wire',
       wire,
       nodeOverrides: (payload.node_overrides || []).filter((o) => o.anchor != null),
+      view,
     };
   }
 
@@ -289,6 +317,7 @@ export function parseImportPayload(payload) {
     nextEdgeId: edges.length
       ? Math.max(...edges.map((e) => parseInt(String(e.id).slice(1), 10) || 0)) + 1
       : 0,
+    view,
   };
 }
 

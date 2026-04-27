@@ -1,36 +1,69 @@
 import React from 'react';
 import SvgLatex from '../SvgLatex.jsx';
 
-const NODE_LABEL_OFFSET = 26;
+const PERP_DIST = 16;
+const FALLBACK_OFFSET = 32;
 
-/** Pick a label-offset direction for an electrical node so it doesn't
- *  sit on top of any wire leaving the node. */
-function nodeLabelDirection(node, wires, vById) {
-  if (!node.vertexIds || node.vertexIds.length === 0) return { x: 0, y: -1 };
+/** Compute the on-canvas position for a node's label.
+ *
+ *  We pick a wire segment associated with the node and place the label
+ *  at the *midpoint* of that segment, offset perpendicular to the side.
+ *
+ *  Preference order:
+ *    1. Longest internal wire (both endpoints belong to the node) —
+ *       safe because no other node can claim it, so adjacent labels
+ *       never collide.
+ *    2. Longest outgoing wire — only used when the node is a single
+ *       vertex with no internal wires.
+ *    3. Fallback above the vertex (truly orphan node).
+ *
+ *  The perpendicular side is chosen consistently: horizontal-ish
+ *  segments get labels above; vertical-ish segments get labels to the
+ *  right. This is independent of which way the segment "points," so
+ *  the same wire produces the same label side regardless of how
+ *  endpoints are stored. */
+function nodeLabelPosition(node, wires, vById) {
+  const fallback = { x: node.x, y: node.y - FALLBACK_OFFSET };
+  if (!node.vertexIds || node.vertexIds.length === 0) return fallback;
   const vertexSet = new Set(node.vertexIds);
-  let sx = 0;
-  let sy = 0;
+
+  const internal = [];
+  const outgoing = [];
+
   for (const w of wires) {
-    let from;
-    let to;
-    if (vertexSet.has(w.from) && !vertexSet.has(w.to)) {
-      from = vById.get(w.from);
-      to = vById.get(w.to);
-    } else if (vertexSet.has(w.to) && !vertexSet.has(w.from)) {
-      from = vById.get(w.to);
-      to = vById.get(w.from);
-    } else continue;
-    if (!from || !to) continue;
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
+    const fromIn = vertexSet.has(w.from);
+    const toIn = vertexSet.has(w.to);
+    if (!fromIn && !toIn) continue;
+    const a = vById.get(w.from);
+    const b = vById.get(w.to);
+    if (!a || !b) continue;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
     const L = Math.hypot(dx, dy);
     if (L < 1e-6) continue;
-    sx += dx / L;
-    sy += dy / L;
+    const seg = { ax: a.x, ay: a.y, bx: b.x, by: b.y, ux: dx / L, uy: dy / L, L };
+    if (fromIn && toIn) internal.push(seg);
+    else outgoing.push(seg);
   }
-  const sLen = Math.hypot(sx, sy);
-  if (sLen < 1e-6) return { x: 0, y: -1 };
-  return { x: -sx / sLen, y: -sy / sLen };
+
+  const pool = internal.length > 0 ? internal : outgoing;
+  if (pool.length === 0) return fallback;
+
+  let chosen = pool[0];
+  for (const s of pool) if (s.L > chosen.L) chosen = s;
+
+  const mx = (chosen.ax + chosen.bx) / 2;
+  const my = (chosen.ay + chosen.by) / 2;
+
+  const perpA = { x: -chosen.uy, y: chosen.ux };
+  const perpB = { x: chosen.uy, y: -chosen.ux };
+  const perp =
+    perpA.y < perpB.y || (perpA.y === perpB.y && perpA.x > perpB.x) ? perpA : perpB;
+
+  return {
+    x: mx + perp.x * PERP_DIST,
+    y: my + perp.y * PERP_DIST,
+  };
 }
 
 /** Render LaTeX labels for each electrical node. */
@@ -39,13 +72,11 @@ function NodeLabels({ wireNodes, wires, vById, labelScale, onHighlightNode }) {
     <>
       {wireNodes.map((n) => {
         if (!n.label) return null;
-        const dir = nodeLabelDirection(n, wires, vById);
-        const lx = n.x + dir.x * NODE_LABEL_OFFSET;
-        const ly = n.y + dir.y * NODE_LABEL_OFFSET;
+        const pos = nodeLabelPosition(n, wires, vById);
         return (
           <g key={`label-${n.id}`}>
             <g
-              transform={`translate(${lx},${ly}) scale(${labelScale})`}
+              transform={`translate(${pos.x},${pos.y}) scale(${labelScale})`}
               pointerEvents={onHighlightNode ? 'auto' : 'none'}
               style={onHighlightNode ? { cursor: 'pointer' } : undefined}
               onMouseDown={onHighlightNode ? (e) => e.stopPropagation() : undefined}

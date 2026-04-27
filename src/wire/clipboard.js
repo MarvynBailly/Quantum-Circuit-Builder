@@ -127,6 +127,31 @@ export function pasteSelection(wire, clip, dx, dy) {
 }
 
 /**
+ * Mirror the vertices touched by the selection across an axis through
+ * their centroid. `axis` is 'horizontal' (flip left-right) or
+ * 'vertical' (flip top-bottom). Wires/components follow because they
+ * reference the same vertex ids.
+ */
+export function mirrorSelection(wire, selection, axis = 'horizontal') {
+  const { vSet } = vertexClosure(wire, selection);
+  if (vSet.size === 0) return wire;
+  const moving = wire.vertices.filter((v) => vSet.has(v.id));
+  const cx = moving.reduce((a, v) => a + v.x, 0) / moving.length;
+  const cy = moving.reduce((a, v) => a + v.y, 0) / moving.length;
+  return {
+    ...wire,
+    vertices: wire.vertices.map((v) => {
+      if (!vSet.has(v.id)) return v;
+      return {
+        ...v,
+        x: axis === 'horizontal' ? 2 * cx - v.x : v.x,
+        y: axis === 'vertical' ? 2 * cy - v.y : v.y,
+      };
+    }),
+  };
+}
+
+/**
  * Rotate the vertices touched by the selection (directly or via
  * incident selected wires/components) around their centroid by
  * `angleRad`. Wires and components follow because they reference

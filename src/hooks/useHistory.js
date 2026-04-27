@@ -52,6 +52,24 @@ export function useHistory({
     const cur = h.stack[h.index];
     if (cur && sameSnapshot(cur, nodes, edges, wire, wireNodes, wireEdges)) return;
 
+    // Skip the intermediate render where `wire` already changed but the
+    // autoDetectNodes effect hasn't fired yet to update `wireNodes` /
+    // `wireEdges`. Without this, every wire mutation creates two
+    // history entries — one with the new wire and stale analysis, then
+    // a second with everything consistent — and a single undo lands
+    // on the stale intermediate. The next render (after autoDetect
+    // commits) will record the consolidated snapshot.
+    if (cur) {
+      const wireDiffers = stableJSON(cur.wire) !== stableJSON(wire ?? null);
+      const analysisStale =
+        stableJSON(cur.wireNodes) === stableJSON(wireNodes ?? []) &&
+        stableJSON(cur.wireEdges) === stableJSON(wireEdges ?? []);
+      if (wireDiffers && analysisStale) {
+        sync();
+        return;
+      }
+    }
+
     h.stack = h.stack.slice(0, h.index + 1);
     h.stack.push(snapshot(nodes, edges, wire, wireNodes, wireEdges));
     h.index = h.stack.length - 1;
@@ -120,10 +138,12 @@ function snapshot(nodes, edges, wire, wireNodes, wireEdges) {
 
 function sameSnapshot(snap, nodes, edges, wire, wireNodes, wireEdges) {
   return (
-    JSON.stringify(snap.nodes) === JSON.stringify(nodes ?? []) &&
-    JSON.stringify(snap.edges) === JSON.stringify(edges ?? []) &&
-    JSON.stringify(snap.wire) === JSON.stringify(wire ?? null) &&
-    JSON.stringify(snap.wireNodes) === JSON.stringify(wireNodes ?? []) &&
-    JSON.stringify(snap.wireEdges) === JSON.stringify(wireEdges ?? [])
+    stableJSON(snap.nodes) === stableJSON(nodes ?? []) &&
+    stableJSON(snap.edges) === stableJSON(edges ?? []) &&
+    stableJSON(snap.wire) === stableJSON(wire ?? null) &&
+    stableJSON(snap.wireNodes) === stableJSON(wireNodes ?? []) &&
+    stableJSON(snap.wireEdges) === stableJSON(wireEdges ?? [])
   );
 }
+
+const stableJSON = JSON.stringify;

@@ -155,6 +155,15 @@ export function usePanZoom(svgRef, { disabled = false } = {}) {
     setZoom(1);
   }, []);
 
+  const setView = useCallback(({ pan: nextPan, zoom: nextZoom } = {}) => {
+    if (nextPan && Number.isFinite(nextPan.x) && Number.isFinite(nextPan.y)) {
+      setPan({ x: nextPan.x, y: nextPan.y });
+    }
+    if (Number.isFinite(nextZoom) && nextZoom > 0) {
+      setZoom(Math.min(Math.max(nextZoom, ZOOM_MIN), ZOOM_MAX));
+    }
+  }, []);
+
   return {
     pan,
     zoom,
@@ -165,5 +174,6 @@ export function usePanZoom(svgRef, { disabled = false } = {}) {
     didPanRef,
     fitToNodes,
     reset,
+    setView,
   };
 }

@@ -161,6 +161,25 @@ export function setComponentColor(wire, componentId, color) {
   };
 }
 
+/** Renumber every component of the given type sequentially as
+ *  symbol_{0}, symbol_{1}, ... (or E_J^{k} for JJ) in current array
+ *  order. Use to clean up labels that became sparse after deletes /
+ *  merges. */
+export function renumberComponentsOfType(wire, typeKey) {
+  const sym = ELEMENT_TYPES[typeKey]?.symbol;
+  if (!sym) return wire;
+  let k = 0;
+  return {
+    ...wire,
+    components: wire.components.map((c) => {
+      if (c.type !== typeKey) return c;
+      const value = typeKey === 'JJ' ? `E_J^{${k}}` : `${sym}_{${k}}`;
+      k++;
+      return { ...c, value };
+    }),
+  };
+}
+
 /**
  * Move a component's center to (cx, cy). Both endpoint vertices
  * translate together, preserving the component's orientation and

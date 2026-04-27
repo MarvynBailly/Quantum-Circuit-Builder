@@ -9,11 +9,19 @@ import PropertiesPanel from './components/PropertiesPanel.jsx';
 import WirePropertiesPanel from './components/WirePropertiesPanel.jsx';
 import HamiltonianPanel from './components/HamiltonianPanel.jsx';
 import NodeLabelsPanel from './components/NodeLabelsPanel.jsx';
+import HelpModal from './components/HelpModal.jsx';
+import Tutorial from './components/Tutorial.jsx';
+
+const TUTORIAL_DISMISSED_KEY = 'quantum-circuit-builder:tutorial:dismissed:v1';
 
 import {
+  autosaveHasContent,
+  clearAutosave,
   downloadJSON,
+  loadAutosave,
   nextSchematicSymbol,
   parseImportPayload,
+  saveAutosave,
   SCHEMATIC_DEFAULT,
 } from './circuit/index.js';
 import {
@@ -31,10 +39,12 @@ import {
   deleteWire as deleteWireEdge,
   gluCoincidentVertices,
   mergeVertexIntoWire,
+  mirrorSelection,
   moveComponentCenter,
   pasteSelection,
   placeStandaloneComponent,
   removeComponent,
+  renumberComponentsOfType,
   rotateSelection,
   serializeSelection,
   setComponentColor,
@@ -54,14 +64,27 @@ import { useResizablePanel } from './hooks/useResizablePanel.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 
 export default function App() {
-  const [mode, setMode] = useState('wire');
+  // Read autosave once at mount. Lazy useState initializers below pick
+  // up loaded state; the autoDetect carry-forward (prevAnalysisRef) is
+  // also primed from the loaded analysis so user-set node labels and
+  // grounds aren't reset by the first auto-detect run after mount.
+  const persisted = useState(() => {
+    const p = loadAutosave();
+    return autosaveHasContent(p) ? p : null;
+  })[0];
 
-  const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]);
+  const [mode, setMode] = useState(() => persisted?.mode ?? 'wire');
 
-  const [wire, setWire] = useState(WIRE_DEFAULT);
-  const [wireNodes, setWireNodes] = useState(WIRE_DEFAULT_ANALYSIS.nodes);
-  const [wireEdges, setWireEdges] = useState(WIRE_DEFAULT_ANALYSIS.edges);
+  const [nodes, setNodes] = useState(() => persisted?.nodes ?? []);
+  const [edges, setEdges] = useState(() => persisted?.edges ?? []);
+
+  const [wire, setWire] = useState(() => persisted?.wire ?? WIRE_DEFAULT);
+  const [wireNodes, setWireNodes] = useState(
+    () => persisted?.wireNodes ?? WIRE_DEFAULT_ANALYSIS.nodes,
+  );
+  const [wireEdges, setWireEdges] = useState(
+    () => persisted?.wireEdges ?? WIRE_DEFAULT_ANALYSIS.edges,
+  );
   const [drawingFromVertexId, setDrawingFromVertexId] = useState(null);
   const [hover, setHover] = useState(null);
 
@@ -114,6 +137,28 @@ export default function App() {
   const [highlightedNodeId, setHighlightedNodeId] = useState(null);
   const [highlightedComponentId, setHighlightedComponentId] = useState(null);
   const [focusedItem, setFocusedItem] = useState(null);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+
+  // Help / tutorial overlays. The tutorial auto-opens on every load
+  // until the user explicitly opts out via the "Don't show again"
+  // checkbox. Just closing the tutorial keeps it returning next time
+  // — that surprised users who expected it to stay available.
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(() => {
+    try {
+      return localStorage.getItem(TUTORIAL_DISMISSED_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
+  const dismissTutorialForever = useCallback(() => {
+    try {
+      localStorage.setItem(TUTORIAL_DISMISSED_KEY, '1');
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleHighlightNode = useCallback((id) => {
     setHighlightedNodeId(id);
@@ -145,8 +190,18 @@ export default function App() {
 
   const svgRef = useRef(null);
   const didDragRef = useRef(false);
-  const nextNodeId = useRef(0);
-  const nextEdgeId = useRef(0);
+  const nextNodeId = useRef(
+    persisted?.nodes && persisted.nodes.length > 0
+      ? Math.max(...persisted.nodes.map((n) => n.id)) + 1
+      : 0,
+  );
+  const nextEdgeId = useRef(
+    persisted?.edges && persisted.edges.length > 0
+      ? Math.max(
+          ...persisted.edges.map((e) => parseInt(String(e.id).slice(1), 10) || 0),
+        ) + 1
+      : 0,
+  );
 
   const panZoom = usePanZoom(svgRef, { disabled: !!selectedTool });
   const panel = useResizablePanel();
@@ -252,6 +307,19 @@ export default function App() {
     }));
   }, []);
 
+  // Reset every electrical-node label to \phi_{0..N-1} in display order.
+  // Clearing userLabel lets the next auto-detect run keep these labels
+  // as the auto-assigned ones (instead of carrying them as user-set).
+  const relabelAllNodes = useCallback(() => {
+    setWireNodes((prev) =>
+      prev.map((n, i) => ({ ...n, label: `\\phi_{${i}}`, userLabel: false })),
+    );
+  }, []);
+
+  const relabelComponentsOfType = useCallback((typeKey) => {
+    setWire((w) => renumberComponentsOfType(w, typeKey));
+  }, []);
+
   const mergeSelectedVertex = useCallback(() => {
     if (!selected || selected.kind !== 'wireVertex') return;
     setWire((w) => mergeVertexIntoWire(w, selected.id));
@@ -301,18 +369,28 @@ export default function App() {
     if (mode !== 'wire' || !clipboardRef.current) return;
     pasteCountRef.current += 1;
     const offset = pasteCountRef.current * GRID;
-    setWire((w) => {
-      const r = pasteSelection(w, clipboardRef.current, offset, offset);
-      setSelection(r.selection);
-      return r.wire;
-    });
-  }, [mode]);
+    // Compute the new wire eagerly so setWire and setSelection batch
+    // as a single render. Calling setSelection inside a setWire
+    // reducer is unsafe — reducers must be pure, and StrictMode
+    // double-invokes them, which fired the side effect twice.
+    const r = pasteSelection(wire, clipboardRef.current, offset, offset);
+    setWire(r.wire);
+    setSelection(r.selection);
+  }, [mode, wire]);
 
   const rotateSelectionBy = useCallback(
     (clockwise) => {
       if (mode !== 'wire' || selection.length === 0) return;
       const angle = (clockwise ? 1 : -1) * (Math.PI / 2);
       setWire((w) => rotateSelection(w, selection, angle));
+    },
+    [mode, selection],
+  );
+
+  const mirrorSelectionAcross = useCallback(
+    (axis) => {
+      if (mode !== 'wire' || selection.length === 0) return;
+      setWire((w) => mirrorSelection(w, selection, axis));
     },
     [mode, selection],
   );
@@ -343,6 +421,7 @@ export default function App() {
     onCopy: copySelection,
     onPaste: pasteClipboard,
     onRotate: rotateSelectionBy,
+    onMirror: mirrorSelectionAcross,
   });
 
   // ---- wire-mode hover dispatch ----
@@ -465,7 +544,10 @@ export default function App() {
   // Auto-rerun electrical-node detection on every wire change. Uses a
   // ref for the previous result so the effect doesn't depend on
   // wireNodes/wireEdges (which would loop).
-  const prevAnalysisRef = useRef({ nodes: [], edges: [] });
+  const prevAnalysisRef = useRef({
+    nodes: persisted?.wireNodes ?? [],
+    edges: persisted?.wireEdges ?? [],
+  });
   useEffect(() => {
     prevAnalysisRef.current = { nodes: wireNodes, edges: wireEdges };
   }, [wireNodes, wireEdges]);
@@ -484,6 +566,17 @@ export default function App() {
     setWireNodes(result.nodes);
     setWireEdges(result.edges);
   }, [wire, isDragging]);
+
+  // Persist the document to localStorage on changes. Debounced so a
+  // burst of edits collapses into a single write, and skipped during
+  // drag so we're not stringifying the whole circuit every frame.
+  useEffect(() => {
+    if (isDragging) return;
+    const id = setTimeout(() => {
+      saveAutosave({ mode, nodes, edges, wire, wireNodes, wireEdges });
+    }, 400);
+    return () => clearTimeout(id);
+  }, [mode, nodes, edges, wire, wireNodes, wireEdges, isDragging]);
 
   const handleImportFile = useCallback(
     async (file) => {
@@ -534,8 +627,24 @@ export default function App() {
         nextNodeId.current = parsed.nextNodeId;
         nextEdgeId.current = parsed.nextEdgeId;
       }
+
+      // Apply exported view state (theme, edge-label toggle, camera)
+      // so the importer's screen matches what the sender saw. Each
+      // field is optional — missing ones leave the importer's
+      // current setting alone, so older JSONs still import cleanly.
+      if (parsed.view) {
+        if (parsed.view.theme === 'light' || parsed.view.theme === 'dark') {
+          setTheme(parsed.view.theme);
+        }
+        if (typeof parsed.view.showEdgeLabels === 'boolean') {
+          setShowEdgeLabels(parsed.view.showEdgeLabels);
+        }
+        if (parsed.view.pan || parsed.view.zoom != null) {
+          panZoom.setView({ pan: parsed.view.pan, zoom: parsed.view.zoom });
+        }
+      }
     },
-    [],
+    [panZoom],
   );
 
   const onSetComponentType = useCallback((componentId, type) => {
@@ -1068,14 +1177,23 @@ export default function App() {
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <HeaderBar
         onClear={clearCircuit}
-        onExport={() =>
+        onExport={() => {
+          const view = {
+            theme,
+            showEdgeLabels,
+            pan: panZoom.pan,
+            zoom: panZoom.zoom,
+          };
           downloadJSON(
             analysisNodes,
             analysisEdges,
-            isWireMode ? { wire, wireNodes } : { schematicNodes: nodes },
-          )
-        }
+            isWireMode
+              ? { wire, wireNodes, view }
+              : { schematicNodes: nodes, view },
+          );
+        }}
         onImport={handleImportFile}
+        onOpenHelp={() => setHelpOpen(true)}
       />
 
       <Toolbar
@@ -1109,6 +1227,10 @@ export default function App() {
           onBlurItem={isWireMode ? handleBlurItem : undefined}
           onSetAllNodeColors={isWireMode ? setAllNodeColors : undefined}
           onSetAllComponentColorsOfType={isWireMode ? setAllComponentColorsOfType : undefined}
+          onRelabelAllNodes={isWireMode ? relabelAllNodes : undefined}
+          onRelabelComponentsOfType={isWireMode ? relabelComponentsOfType : undefined}
+          collapsed={leftCollapsed}
+          onToggleCollapsed={() => setLeftCollapsed((v) => !v)}
         />
 
         <div style={{ flex: 1, position: 'relative' }}>
@@ -1264,8 +1386,24 @@ export default function App() {
           edges={analysisEdges}
           width={panel.width}
           onResizeStart={panel.onResizeStart}
+          collapsed={rightCollapsed}
+          onToggleCollapsed={() => setRightCollapsed((v) => !v)}
         />
       </div>
+
+      <HelpModal
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onRunTutorial={() => {
+          setHelpOpen(false);
+          setTutorialOpen(true);
+        }}
+      />
+      <Tutorial
+        open={tutorialOpen}
+        onClose={() => setTutorialOpen(false)}
+        onDismissForever={dismissTutorialForever}
+      />
     </div>
   );
 }
