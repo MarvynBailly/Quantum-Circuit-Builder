@@ -1,10 +1,10 @@
 import React from 'react';
 
 /** Render the wire edges, tinted by their electrical-node color. */
-export default function Wires({ wire, vById, vertexNodeId, colorForNode, isSelected, highlightedNodeId }) {
+function Wires({ wires, vById, vertexNodeId, colorForNode, isSelected, highlightedNodeId }) {
   return (
     <>
-      {wire.wires.map((w) => {
+      {wires.map((w) => {
         const a = vById.get(w.from);
         const b = vById.get(w.to);
         if (!a || !b) return null;
@@ -34,3 +34,5 @@ export default function Wires({ wire, vById, vertexNodeId, colorForNode, isSelec
     </>
   );
 }
+
+export default React.memo(Wires);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import HeaderBar from './components/HeaderBar.jsx';
 import Toolbar from './components/Toolbar.jsx';
@@ -347,9 +347,18 @@ export default function App() {
 
   // ---- wire-mode hover dispatch ----
 
+  // Cache the id→vertex map per wire snapshot. snapToWire / snapToComponent
+  // / computeHover all need it, and rebuilding it on every mousemove was
+  // the hottest allocation in the hover path on large circuits.
+  const vById = useMemo(
+    () => new Map(wire.vertices.map((v) => [v.id, v])),
+    [wire.vertices],
+  );
+
   const hoverFor = useCallback(
-    (pt, shiftKey) => (mode === 'wire' ? computeHover(wire, selectedTool, pt, shiftKey) : null),
-    [mode, selectedTool, wire],
+    (pt, shiftKey) =>
+      mode === 'wire' ? computeHover(wire, selectedTool, pt, shiftKey, vById) : null,
+    [mode, selectedTool, wire, vById],
   );
 
   const handleWireClick = useCallback(
@@ -461,11 +470,20 @@ export default function App() {
     prevAnalysisRef.current = { nodes: wireNodes, edges: wireEdges };
   }, [wireNodes, wireEdges]);
 
+  // Skip analysis while a drag is in progress — wire mutates every
+  // mousemove during a drag and rerunning union-find + setting state
+  // would cascade a re-render of the Hamiltonian panel each frame.
+  // The effect refires when isDragging flips back to false, so the
+  // post-drag wire state is always analyzed exactly once on release.
+  const isDragging =
+    dragging !== null || draggingComponentId !== null || multiDragging;
+
   useEffect(() => {
+    if (isDragging) return;
     const result = autoDetectNodes(wire, prevAnalysisRef.current);
     setWireNodes(result.nodes);
     setWireEdges(result.edges);
-  }, [wire]);
+  }, [wire, isDragging]);
 
   const handleImportFile = useCallback(
     async (file) => {
@@ -492,7 +510,10 @@ export default function App() {
 
       if (parsed.kind === 'wire') {
         setMode('wire');
-        setSelectedTool('wire');
+        // Land the user in selection mode after import — they almost
+        // always want to inspect what they just loaded, not draw on
+        // top of it.
+        setSelectedTool(null);
         setWire(parsed.wire);
         const previousNodes = parsed.nodeOverrides.map((o) => ({
           label: o.label,
@@ -726,7 +747,7 @@ export default function App() {
           let centerX = rawX;
           let centerY = rawY;
           if (!e.shiftKey) {
-            const hit = snapToWire(w, rawX, rawY, SNAP_RADIUS, exclude);
+            const hit = snapToWire(w, rawX, rawY, SNAP_RADIUS, exclude, vById);
             if (hit) {
               const snapWire = w.wires.find((ww) => ww.id === hit.id);
               const a = w.vertices.find((v) => v.id === snapWire.from);
@@ -815,7 +836,38 @@ export default function App() {
           if (target) matches.push({ movedId: mid, intoId: target.id });
         }
         if (matches.length === 0) return w;
-        let next = w;
+
+        // Dedupe overlapping components: if a moving component's
+        // endpoints both glue onto a stationary component of the
+        // same type spanning the same edge, drop the moving one
+        // before the vertex glue runs. Without this the wire-
+        // separation rule would keep both as parallel edges joined
+        // by a zero-length wire — fine for mismatched types, wrong
+        // when the user is tiling identical cells.
+        const intoMap = new Map(matches.map((m) => [m.movedId, m.intoId]));
+        const stationaryByEdge = new Map();
+        for (const c of w.components) {
+          if (movedIds.has(c.from) || movedIds.has(c.to)) continue;
+          const lo = Math.min(c.from, c.to);
+          const hi = Math.max(c.from, c.to);
+          stationaryByEdge.set(`${c.type}:${lo}-${hi}`, c.id);
+        }
+        const droppedComponentIds = new Set();
+        for (const c of w.components) {
+          if (!movedIds.has(c.from) && !movedIds.has(c.to)) continue;
+          const mFrom = intoMap.get(c.from) ?? c.from;
+          const mTo = intoMap.get(c.to) ?? c.to;
+          if (mFrom === c.from && mTo === c.to) continue;
+          const lo = Math.min(mFrom, mTo);
+          const hi = Math.max(mFrom, mTo);
+          if (stationaryByEdge.has(`${c.type}:${lo}-${hi}`)) {
+            droppedComponentIds.add(c.id);
+          }
+        }
+        let next =
+          droppedComponentIds.size > 0
+            ? { ...w, components: w.components.filter((c) => !droppedComponentIds.has(c.id)) }
+            : w;
         for (const m of matches) next = gluCoincidentVertices(next, m.movedId, m.intoId);
         // Update the selection: any vertex that was absorbed is
         // replaced by the stationary it merged into; wires/components
@@ -877,7 +929,7 @@ export default function App() {
     (e) => {
       if (mode !== 'wire') return;
       const pt = panZoom.svgPoint(e);
-      const wireHit = snapToWire(wire, pt.x, pt.y);
+      const wireHit = snapToWire(wire, pt.x, pt.y, undefined, null, vById);
       if (!wireHit) return;
       // Avoid double-clicking right on top of an existing vertex.
       if (snapToVertex(wire.vertices, pt.x, pt.y) !== null) return;
@@ -888,7 +940,7 @@ export default function App() {
         setSelected({ kind: 'wireVertex', id: r.vertexId });
       }
     },
-    [mode, panZoom, wire],
+    [mode, panZoom, wire, vById],
   );
 
   const onContextMenu = useCallback((e) => {

@@ -1,32 +1,18 @@
-import React, { useMemo } from 'react';
-import katex from 'katex';
-
-const LATEX_RE = /[\\_{^}]/;
+import React from 'react';
+import { renderLatex } from './katexCache.js';
 
 /**
  * Render inline text with automatic LaTeX support (HTML context).
  *
- * If the text contains LaTeX-like characters, it is rendered through
- * KaTeX. Otherwise it passes through as plain text.
+ * KaTeX output is cached globally so repeated labels (\phi_{0}, etc.)
+ * are only rendered once per unique string.
  */
-export default function InlineLatex({ text, style }) {
-  const isLatex = LATEX_RE.test(text);
-
-  const html = useMemo(() => {
-    if (!isLatex) return null;
-    try {
-      return katex.renderToString(text, {
-        throwOnError: false,
-        displayMode: false,
-      });
-    } catch {
-      return null;
-    }
-  }, [text, isLatex]);
-
-  if (!isLatex || html === null) {
+function InlineLatex({ text, style }) {
+  const html = renderLatex(text);
+  if (html === null) {
     return <span style={style}>{text}</span>;
   }
-
   return <span style={style} dangerouslySetInnerHTML={{ __html: html }} />;
 }
+
+export default React.memo(InlineLatex);

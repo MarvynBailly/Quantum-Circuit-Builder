@@ -1,23 +1,14 @@
-import React, { useMemo } from 'react';
-import katex from 'katex';
-
-const LATEX_RE = /[\\_{^}]/;
+import React from 'react';
+import { renderLatex } from './katexCache.js';
 
 /**
  * Render a text label inside SVG, with automatic LaTeX support.
  *
  * If the text contains LaTeX-like characters (\, _, ^, {, }),
- * it is rendered through KaTeX inside a <foreignObject>.
+ * it is rendered through KaTeX (cached) inside a <foreignObject>.
  * Otherwise it renders as a plain SVG <text> element.
- *
- * @param {string}  text      - Label string (plain text or LaTeX math)
- * @param {number}  x         - Center x position
- * @param {number}  y         - Center y position
- * @param {number}  fontSize  - Font size in px
- * @param {string}  color     - CSS color
- * @param {number}  fontWeight
  */
-export default function SvgLatex({
+function SvgLatex({
   text,
   x,
   y,
@@ -25,21 +16,9 @@ export default function SvgLatex({
   color = 'var(--text-primary)',
   fontWeight = 400,
 }) {
-  const isLatex = LATEX_RE.test(text);
+  const html = renderLatex(text);
 
-  const html = useMemo(() => {
-    if (!isLatex) return null;
-    try {
-      return katex.renderToString(text, {
-        throwOnError: false,
-        displayMode: false,
-      });
-    } catch {
-      return null;
-    }
-  }, [text, isLatex]);
-
-  if (!isLatex || html === null) {
+  if (html === null) {
     return (
       <text
         x={x}
@@ -83,3 +62,5 @@ export default function SvgLatex({
     </foreignObject>
   );
 }
+
+export default React.memo(SvgLatex);

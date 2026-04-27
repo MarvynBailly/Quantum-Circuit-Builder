@@ -7,8 +7,8 @@ const COMPONENT_LABEL_OFFSET = 28;
 const TERMINAL_RADIUS = 3;
 
 /** Render component edges (C/L/JJ) between their endpoint vertices. */
-export default function Components({
-  wire,
+function Components({
+  components,
   vById,
   vertexNodeId,
   colorForNode,
@@ -22,7 +22,7 @@ export default function Components({
 }) {
   return (
     <>
-      {wire.components.map((c) => {
+      {components.map((c) => {
         const a = vById.get(c.from);
         const b = vById.get(c.to);
         if (!a || !b) return null;
@@ -143,3 +143,5 @@ export default function Components({
     </>
   );
 }
+
+export default React.memo(Components);

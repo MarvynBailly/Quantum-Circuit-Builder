@@ -45,9 +45,12 @@ export function snapToVertex(vertices, x, y, radius = SNAP_RADIUS) {
  * Snap to the nearest wire edge. Returns { id, t, d, x, y } or null.
  * `excludeIds` skips wires whose id is in the set (useful when dragging
  * to ignore wires whose endpoint vertex is the one being moved).
+ * `vById` is an optional pre-built id→vertex map; if omitted it's
+ * rebuilt from `wire.vertices` (so callers on the hot path should
+ * pass one).
  */
-export function snapToWire(wire, x, y, radius = SNAP_RADIUS, excludeIds = null) {
-  const byId = new Map(wire.vertices.map((v) => [v.id, v]));
+export function snapToWire(wire, x, y, radius = SNAP_RADIUS, excludeIds = null, vById = null) {
+  const byId = vById ?? new Map(wire.vertices.map((v) => [v.id, v]));
   let best = null;
   for (const w of wire.wires) {
     if (excludeIds && excludeIds.has(w.id)) continue;
@@ -66,9 +69,10 @@ export function snapToWire(wire, x, y, radius = SNAP_RADIUS, excludeIds = null) 
 /**
  * Find the component whose body line is closest to (x,y). Used for
  * hit-testing existing components for selection or center-drag.
+ * Accepts the same optional `vById` shortcut as `snapToWire`.
  */
-export function snapToComponent(wire, x, y, radius = SNAP_RADIUS) {
-  const byId = new Map(wire.vertices.map((v) => [v.id, v]));
+export function snapToComponent(wire, x, y, radius = SNAP_RADIUS, vById = null) {
+  const byId = vById ?? new Map(wire.vertices.map((v) => [v.id, v]));
   let best = null;
   for (const c of wire.components) {
     const a = byId.get(c.from);

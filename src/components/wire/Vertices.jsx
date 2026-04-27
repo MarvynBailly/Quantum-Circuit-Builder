@@ -6,8 +6,8 @@ const TERMINAL_RADIUS = 3;
 
 /** Render every vertex. Wired vertices take their electrical-node color;
  *  terminal-only vertices (no incident wires) render as small neutral dots. */
-export default function Vertices({
-  wire,
+function Vertices({
+  vertices,
   vertexNodeId,
   colorForNode,
   drawingFromVertexId,
@@ -19,7 +19,7 @@ export default function Vertices({
 }) {
   return (
     <>
-      {wire.vertices.map((v) => {
+      {vertices.map((v) => {
         const isDrawingFrom = drawingFromVertexId === v.id;
         const vertexSelected = isSelected('wireVertex', v.id);
         const isHover = hover?.kind === 'vertex' && hover.id === v.id;
@@ -65,3 +65,5 @@ export default function Vertices({
     </>
   );
 }
+
+export default React.memo(Vertices);

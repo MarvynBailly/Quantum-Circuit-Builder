@@ -69,24 +69,55 @@ export function usePanZoom(svgRef, { disabled = false } = {}) {
   }, []);
 
   // Wheel zoom (attached imperatively so we can call preventDefault).
+  // Wheel events fire faster than the browser can paint on a trackpad;
+  // we accumulate the zoom factor in a closure-local var and commit
+  // pan/zoom once per animation frame. Functional setState updates
+  // mean the rAF always reads the *current committed* pan/zoom, so
+  // there's no stale-ref race no matter how the events interleave.
+  // Pan adjustment is skipped when zoom is clamped — otherwise the
+  // canvas drifts under a pinned cursor at ZOOM_MIN/MAX.
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
+    let rafId = null;
+    let pending = null;
+    const flush = () => {
+      rafId = null;
+      const acc = pending;
+      pending = null;
+      if (!acc) return;
+      setZoom((z) => {
+        const newZoom = Math.min(Math.max(z * acc.factor, ZOOM_MIN), ZOOM_MAX);
+        if (newZoom === z) return z;
+        setPan((p) => {
+          const wx = (acc.sx - p.x) / z;
+          const wy = (acc.sy - p.y) / z;
+          return { x: acc.sx - wx * newZoom, y: acc.sy - wy * newZoom };
+        });
+        return newZoom;
+      });
+    };
     const onWheel = (e) => {
       e.preventDefault();
       const rect = svg.getBoundingClientRect();
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
-      const wx = (sx - pan.x) / zoom;
-      const wy = (sy - pan.y) / zoom;
       const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-      const newZoom = Math.min(Math.max(zoom * factor, ZOOM_MIN), ZOOM_MAX);
-      setPan({ x: sx - wx * newZoom, y: sy - wy * newZoom });
-      setZoom(newZoom);
+      if (pending) {
+        pending.factor *= factor;
+        pending.sx = sx;
+        pending.sy = sy;
+      } else {
+        pending = { factor, sx, sy };
+      }
+      if (rafId === null) rafId = requestAnimationFrame(flush);
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
-    return () => svg.removeEventListener('wheel', onWheel);
-  }, [pan, zoom, svgRef]);
+    return () => {
+      svg.removeEventListener('wheel', onWheel);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [svgRef]);
 
   const fitToNodes = useCallback(
     (nodes) => {

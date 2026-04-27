@@ -27,29 +27,29 @@ import {
   snapToWire,
 } from './snap.js';
 
-export function computeHover(wire, selectedTool, pt, shiftKey) {
+export function computeHover(wire, selectedTool, pt, shiftKey, vById = null) {
   const verts = wire.vertices;
-  const vById = new Map(verts.map((v) => [v.id, v]));
+  const byId = vById ?? new Map(verts.map((v) => [v.id, v]));
 
   const vid = snapToVertex(verts, pt.x, pt.y);
   if (vid !== null) {
-    const v = vById.get(vid);
+    const v = byId.get(vid);
     return { kind: 'vertex', id: vid, x: v.x, y: v.y };
   }
 
   // No tool — prefer existing components for selection.
   if (!selectedTool) {
-    const compHit = snapToComponent(wire, pt.x, pt.y);
+    const compHit = snapToComponent(wire, pt.x, pt.y, undefined, byId);
     if (compHit) return { kind: 'component', id: compHit.id };
   }
 
-  const wireHit = snapToWire(wire, pt.x, pt.y);
+  const wireHit = snapToWire(wire, pt.x, pt.y, undefined, null, byId);
 
   if (selectedTool === 'wire') {
     if (wireHit) {
       const w = wire.wires.find((e) => e.id === wireHit.id);
-      const a = vById.get(w.from);
-      const b = vById.get(w.to);
+      const a = byId.get(w.from);
+      const b = byId.get(w.to);
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const len2 = dx * dx + dy * dy;
@@ -84,8 +84,8 @@ export function computeHover(wire, selectedTool, pt, shiftKey) {
   if (selectedTool === 'C' || selectedTool === 'L' || selectedTool === 'JJ') {
     if (wireHit) {
       const w = wire.wires.find((e) => e.id === wireHit.id);
-      const a = vById.get(w.from);
-      const b = vById.get(w.to);
+      const a = byId.get(w.from);
+      const b = byId.get(w.to);
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const L = Math.hypot(dx, dy);

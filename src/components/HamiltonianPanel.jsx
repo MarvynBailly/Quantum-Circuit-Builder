@@ -69,7 +69,7 @@ function CapacitanceMatrix({ nodes, edges }) {
   );
 }
 
-export default function HamiltonianPanel({ nodes, edges, width = 380, onResizeStart }) {
+function HamiltonianPanel({ nodes, edges, width = 380, onResizeStart }) {
   const adj = adjacencyMatrix(nodes, edges);
 
   return (
@@ -176,3 +176,5 @@ const tdStyle = {
   padding: '4px 8px',
   fontSize: 11,
 };
+
+export default React.memo(HamiltonianPanel);

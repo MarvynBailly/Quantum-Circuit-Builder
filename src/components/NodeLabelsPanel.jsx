@@ -34,7 +34,7 @@ const colorSwatchStyle = {
  * HamiltonianPanel: sections with overflow-x scrolling and grid rows
  * that shrink gracefully (minmax(0, 1fr)) as the panel narrows.
  */
-export default function NodeLabelsPanel({
+function NodeLabelsPanel({
   nodes,
   onUpdateNode,
   components,
@@ -309,3 +309,5 @@ export default function NodeLabelsPanel({
     </div>
   );
 }
+
+export default React.memo(NodeLabelsPanel);

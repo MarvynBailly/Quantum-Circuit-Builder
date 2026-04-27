@@ -5,12 +5,12 @@ const NODE_LABEL_OFFSET = 26;
 
 /** Pick a label-offset direction for an electrical node so it doesn't
  *  sit on top of any wire leaving the node. */
-function nodeLabelDirection(node, wire, vById) {
+function nodeLabelDirection(node, wires, vById) {
   if (!node.vertexIds || node.vertexIds.length === 0) return { x: 0, y: -1 };
   const vertexSet = new Set(node.vertexIds);
   let sx = 0;
   let sy = 0;
-  for (const w of wire.wires) {
+  for (const w of wires) {
     let from;
     let to;
     if (vertexSet.has(w.from) && !vertexSet.has(w.to)) {
@@ -34,12 +34,12 @@ function nodeLabelDirection(node, wire, vById) {
 }
 
 /** Render LaTeX labels for each electrical node. */
-export default function NodeLabels({ wireNodes, wire, vById, labelScale, onHighlightNode }) {
+function NodeLabels({ wireNodes, wires, vById, labelScale, onHighlightNode }) {
   return (
     <>
       {wireNodes.map((n) => {
         if (!n.label) return null;
-        const dir = nodeLabelDirection(n, wire, vById);
+        const dir = nodeLabelDirection(n, wires, vById);
         const lx = n.x + dir.x * NODE_LABEL_OFFSET;
         const ly = n.y + dir.y * NODE_LABEL_OFFSET;
         return (
@@ -73,3 +73,5 @@ export default function NodeLabels({ wireNodes, wire, vById, labelScale, onHighl
     </>
   );
 }
+
+export default React.memo(NodeLabels);

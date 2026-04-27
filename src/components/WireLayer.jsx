@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import Wires from './wire/Wires.jsx';
 import Components from './wire/Components.jsx';
 import Vertices from './wire/Vertices.jsx';
@@ -15,6 +15,11 @@ import HoverPreview from './wire/HoverPreview.jsx';
  *
  * `selection` is the multi-selection array; an internal lookup is
  * built once so subcomponents can do O(1) selected-checks.
+ *
+ * Lookup maps and the small helper closures are memoized so each child
+ * sees stable prop references — combined with React.memo on the
+ * children, this skips re-rendering the ~150-component SVG tree on
+ * unrelated state changes (hover, drag of an unrelated vertex, etc.).
  */
 export default function WireLayer({
   wire,
@@ -32,26 +37,42 @@ export default function WireLayer({
   onHighlightNode,
   onHighlightComponent,
 }) {
-  const vById = new Map(wire.vertices.map((v) => [v.id, v]));
+  const vById = useMemo(
+    () => new Map(wire.vertices.map((v) => [v.id, v])),
+    [wire.vertices],
+  );
 
-  // electrical-node lookups
-  const vertexNodeId = new Map();
-  const nodeById = new Map();
-  for (const n of wireNodes) {
-    nodeById.set(n.id, n);
-    if (n.vertexIds) {
-      for (const vid of n.vertexIds) vertexNodeId.set(vid, n.id);
+  const { vertexNodeId, nodeById } = useMemo(() => {
+    const vmap = new Map();
+    const nmap = new Map();
+    for (const n of wireNodes) {
+      nmap.set(n.id, n);
+      if (n.vertexIds) {
+        for (const vid of n.vertexIds) vmap.set(vid, n.id);
+      }
     }
-  }
-  const colorForNode = (id) =>
-    id === undefined ? 'var(--text-secondary)' : nodeById.get(id)?.color ?? 'var(--text-secondary)';
+    return { vertexNodeId: vmap, nodeById: nmap };
+  }, [wireNodes]);
 
-  // Selection lookup: stringified "kind:id" keys.
-  const selectedKeys = new Set();
-  for (const s of selection) {
-    if (s.kind) selectedKeys.add(`${s.kind}:${s.id}`);
-  }
-  const isSelected = (kind, id) => selectedKeys.has(`${kind}:${id}`);
+  const colorForNode = useMemo(
+    () => (id) =>
+      id === undefined
+        ? 'var(--text-secondary)'
+        : nodeById.get(id)?.color ?? 'var(--text-secondary)',
+    [nodeById],
+  );
+
+  const selectedKeys = useMemo(() => {
+    const set = new Set();
+    for (const s of selection) {
+      if (s.kind) set.add(`${s.kind}:${s.id}`);
+    }
+    return set;
+  }, [selection]);
+  const isSelected = useMemo(
+    () => (kind, id) => selectedKeys.has(`${kind}:${id}`),
+    [selectedKeys],
+  );
 
   // Inverse-zoom factor for keeping labels at constant on-screen size.
   const labelScale = 1 / Math.max(zoom, 0.0001);
@@ -59,7 +80,7 @@ export default function WireLayer({
   return (
     <g>
       <Wires
-        wire={wire}
+        wires={wire.wires}
         vById={vById}
         vertexNodeId={vertexNodeId}
         colorForNode={colorForNode}
@@ -67,7 +88,7 @@ export default function WireLayer({
         highlightedNodeId={highlightedNodeId}
       />
       <Components
-        wire={wire}
+        components={wire.components}
         vById={vById}
         vertexNodeId={vertexNodeId}
         colorForNode={colorForNode}
@@ -86,7 +107,7 @@ export default function WireLayer({
         drawingFromVertexId={drawingFromVertexId}
       />
       <Vertices
-        wire={wire}
+        vertices={wire.vertices}
         vertexNodeId={vertexNodeId}
         colorForNode={colorForNode}
         drawingFromVertexId={drawingFromVertexId}
@@ -98,7 +119,7 @@ export default function WireLayer({
       />
       <NodeLabels
         wireNodes={wireNodes}
-        wire={wire}
+        wires={wire.wires}
         vById={vById}
         labelScale={labelScale}
         onHighlightNode={onHighlightNode}
