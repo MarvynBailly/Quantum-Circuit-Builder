@@ -20,6 +20,8 @@ export default function WirePropertiesPanel({
   onSetComponentType,
   onSetComponentValue,
   onDelete,
+  onMergeVertex,
+  canMergeVertex = false,
 }) {
   if (!selected) return null;
 
@@ -64,15 +66,15 @@ export default function WirePropertiesPanel({
     );
   }
 
-  if (selected.kind === 'wireSegment') {
+  if (selected.kind === 'wire') {
     return (
       <div style={panelStyle}>
-        <div style={headerStyle}>WIRE SEGMENT</div>
+        <div style={headerStyle}>WIRE</div>
         <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 12 }}>
-          Pure wire connection between two vertices.
+          Pure conductor between two vertices.
         </div>
         <button onClick={onDelete} style={deleteStyle}>
-          Delete segment
+          Delete wire
         </button>
       </div>
     );
@@ -81,10 +83,24 @@ export default function WirePropertiesPanel({
   if (selected.kind === 'wireVertex') {
     return (
       <div style={panelStyle}>
-        <div style={headerStyle}>WIRE VERTEX</div>
+        <div style={headerStyle}>VERTEX</div>
         <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 12 }}>
-          Visual turning point
+          Visual turning point.
         </div>
+        {onMergeVertex && (
+          <button
+            onClick={onMergeVertex}
+            disabled={!canMergeVertex}
+            style={{ ...mergeStyle, ...(canMergeVertex ? {} : disabledStyle) }}
+            title={
+              canMergeVertex
+                ? 'Combine the two wires meeting here into one straight wire'
+                : 'Merge needs exactly two wires meeting here, with no components attached'
+            }
+          >
+            Merge into wire
+          </button>
+        )}
         <button onClick={onDelete} style={deleteStyle}>
           Delete vertex
         </button>
@@ -125,4 +141,22 @@ const deleteStyle = {
   fontSize: 12,
   cursor: 'pointer',
   fontFamily: 'inherit',
+};
+
+const mergeStyle = {
+  width: '100%',
+  padding: '6px 0',
+  marginBottom: 8,
+  background: 'transparent',
+  border: '1px solid var(--accent-blue)',
+  borderRadius: 4,
+  color: 'var(--accent-blue)',
+  fontSize: 12,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+
+const disabledStyle = {
+  opacity: 0.4,
+  cursor: 'not-allowed',
 };

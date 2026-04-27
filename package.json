@@ -1,5 +1,5 @@
 {
-  "name": "fluxonium-circuit-builder",
+  "name": "quantum-circuit-builder",
   "version": "0.1.0",
   "description": "Interactive web tool for building superconducting circuit models and extracting Hamiltonian parameters for lattice field theory simulation",
   "type": "module",

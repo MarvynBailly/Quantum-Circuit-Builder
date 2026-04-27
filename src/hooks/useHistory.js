@@ -5,7 +5,7 @@ const MAX_HISTORY = 100;
 /**
  * Tracks both modes of state for undo / redo:
  *   schematic side : nodes + edges
- *   wire side      : wire (vertices + segments) + wireNodes + wireEdges
+ *   wire side      : wire (vertices + wires + components) + wireNodes + wireEdges
  *
  * Pauses recording while `dragging` is non-null so a drag produces one
  * history entry, not many. Pass null/undefined for any state pair that
@@ -72,7 +72,8 @@ export function useHistory({
         setWire({
           ...s.wire,
           vertices: s.wire.vertices.map((v) => ({ ...v })),
-          segments: s.wire.segments.map((seg) => ({ ...seg })),
+          wires: s.wire.wires.map((w) => ({ ...w })),
+          components: s.wire.components.map((c) => ({ ...c })),
         });
       }
       if (setWireNodes && s.wireNodes) setWireNodes(s.wireNodes.map((n) => ({ ...n })));
@@ -108,7 +109,8 @@ function snapshot(nodes, edges, wire, wireNodes, wireEdges) {
       ? {
           ...wire,
           vertices: wire.vertices.map((v) => ({ ...v })),
-          segments: wire.segments.map((s) => ({ ...s })),
+          wires: wire.wires.map((w) => ({ ...w })),
+          components: wire.components.map((c) => ({ ...c })),
         }
       : null,
     wireNodes: (wireNodes ?? []).map((n) => ({ ...n })),

@@ -2,12 +2,13 @@
  * Serialize circuit topology to a downloadable JSON file.
  *
  * Wire-mode exports preserve the full geometry (vertex positions,
- * segment topology, component placements) plus any user-set node
- * labels / grounds, so re-importing produces an identical-looking
+ * wire-edge topology, component-edge endpoints) plus any user-set
+ * node labels / grounds, so re-importing produces an identical-looking
  * diagram. Schematic-mode exports preserve node positions directly.
  */
 
 import { adjacencyMatrix, capacitanceMatrix, formatSymbolicSum } from '../physics/hamiltonian.js';
+import { COMPONENT_LENGTH } from '../wire/index.js';
 
 /**
  * @param {Array} nodes - analysis-level nodes (electrical nodes)
@@ -24,8 +25,8 @@ export function buildExportPayload(nodes, edges, extra = {}) {
 
   const payload = {
     _meta: {
-      generator: 'fluxonium-circuit-builder',
-      version: '0.2.0',
+      generator: 'quantum-circuit-builder',
+      version: '0.3.0',
       exported_at: new Date().toISOString(),
       description: 'Circuit topology exported from an interactive circuit graph.',
     },
@@ -60,16 +61,17 @@ export function buildExportPayload(nodes, edges, extra = {}) {
   if (extra.wire) {
     payload.wire_geometry = {
       vertices: extra.wire.vertices.map((v) => ({ id: v.id, x: v.x, y: v.y })),
-      segments: extra.wire.segments.map((s) => ({ id: s.id, from: s.from, to: s.to })),
+      wires: extra.wire.wires.map((w) => ({ id: w.id, from: w.from, to: w.to })),
       components: extra.wire.components.map((c) => ({
         id: c.id,
-        segment_id: c.segmentId,
-        t: c.t,
+        from: c.from,
+        to: c.to,
         type: c.type,
         value: c.value,
+        ...(c.userColor ? { color: c.color } : {}),
       })),
       next_vertex_id: extra.wire.nextVertexId,
-      next_segment_id: extra.wire.nextSegmentId,
+      next_wire_id: extra.wire.nextWireId,
       next_component_id: extra.wire.nextComponentId,
     };
 
@@ -81,7 +83,6 @@ export function buildExportPayload(nodes, edges, extra = {}) {
             n.vertexIds && n.vertexIds.length ? Math.min(...n.vertexIds) : null;
           return {
             anchor,
-            phantom_key: n.phantomKey || null,
             label: n.userLabel ? n.label : undefined,
             color: n.userColor ? n.color : undefined,
             is_ground: n.isGround || undefined,
@@ -94,40 +95,163 @@ export function buildExportPayload(nodes, edges, extra = {}) {
 }
 
 /**
+ * Convert an old-format wire_geometry (segments + components-as-overlays)
+ * into the new edge-based shape (wires + components-as-edges with their
+ * own endpoint vertices). Components on a segment are converted left-to-
+ * right into alternating wire / component edges.
+ */
+function convertOldWireGeometry(g) {
+  const vertices = g.vertices.map((v) => ({ id: v.id, x: v.x, y: v.y }));
+  let nextVertexId =
+    g.next_vertex_id ??
+    (vertices.length ? Math.max(...vertices.map((v) => v.id)) + 1 : 0);
+
+  const newWires = [];
+  const newComponents = [];
+  let nextWireId = 0;
+  let nextComponentId =
+    g.next_component_id ??
+    (g.components && g.components.length
+      ? Math.max(
+          ...g.components.map((c) => parseInt(String(c.id).slice(1), 10) || 0),
+        ) + 1
+      : 0);
+
+  // Group old components by segment_id, sorted by t.
+  const compsBySeg = new Map();
+  for (const c of g.components || []) {
+    if (!compsBySeg.has(c.segment_id)) compsBySeg.set(c.segment_id, []);
+    compsBySeg.get(c.segment_id).push(c);
+  }
+  for (const list of compsBySeg.values()) list.sort((a, b) => a.t - b.t);
+
+  const vById = new Map(vertices.map((v) => [v.id, v]));
+
+  for (const seg of g.segments || []) {
+    const a = vById.get(seg.from);
+    const b = vById.get(seg.to);
+    if (!a || !b) continue;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const L = Math.hypot(dx, dy);
+    const comps = compsBySeg.get(seg.id) || [];
+
+    if (comps.length === 0) {
+      newWires.push({ id: `w${nextWireId++}`, from: seg.from, to: seg.to });
+      continue;
+    }
+
+    const halfT = L > 1e-6 ? Math.min(COMPONENT_LENGTH, L * 0.9) / 2 / L : 0.05;
+    let leftVid = seg.from;
+    let leftT = 0;
+    for (let i = 0; i < comps.length; i++) {
+      const c = comps[i];
+      // Clip component bounds to not overlap neighbors.
+      const minT = leftT + 1e-6;
+      const maxT =
+        i + 1 < comps.length ? (c.t + comps[i + 1].t) / 2 : 1;
+      let t1 = Math.max(minT, c.t - halfT);
+      let t2 = Math.min(maxT, c.t + halfT);
+      if (t1 < 1e-3) t1 = 0;
+      if (t2 > 1 - 1e-3) t2 = 1;
+
+      let p1Id;
+      if (t1 === 0) {
+        p1Id = seg.from;
+      } else {
+        p1Id = nextVertexId++;
+        vertices.push({ id: p1Id, x: a.x + t1 * dx, y: a.y + t1 * dy });
+      }
+      let p2Id;
+      if (t2 === 1) {
+        p2Id = seg.to;
+      } else {
+        p2Id = nextVertexId++;
+        vertices.push({ id: p2Id, x: a.x + t2 * dx, y: a.y + t2 * dy });
+      }
+
+      // Wire piece from previous left endpoint to p1 (if non-trivial).
+      if (leftVid !== p1Id) {
+        newWires.push({ id: `w${nextWireId++}`, from: leftVid, to: p1Id });
+      }
+      newComponents.push({
+        id: c.id || `c${nextComponentId++}`,
+        from: p1Id,
+        to: p2Id,
+        type: c.type,
+        value: c.value,
+      });
+      leftVid = p2Id;
+      leftT = t2;
+    }
+    if (leftVid !== seg.to) {
+      newWires.push({ id: `w${nextWireId++}`, from: leftVid, to: seg.to });
+    }
+  }
+
+  return {
+    vertices,
+    wires: newWires,
+    components: newComponents,
+    nextVertexId,
+    nextWireId,
+    nextComponentId,
+  };
+}
+
+/**
  * Reverse of buildExportPayload. Returns one of:
  *   { kind: 'wire', wire, nodeOverrides }
  *   { kind: 'schematic', nodes, edges, nextNodeId, nextEdgeId }
+ *
+ * Detects and converts the old overlay-based wire format
+ * (segments + components-with-segment_id) on the fly.
  */
 export function parseImportPayload(payload) {
   if (payload?.wire_geometry) {
     const g = payload.wire_geometry;
-    const wire = {
-      vertices: g.vertices.map((v) => ({ id: v.id, x: v.x, y: v.y })),
-      segments: g.segments.map((s) => ({ id: s.id, from: s.from, to: s.to })),
-      components: g.components.map((c) => ({
-        id: c.id,
-        segmentId: c.segment_id,
-        t: c.t,
-        type: c.type,
-        value: c.value,
-      })),
-      nextVertexId:
-        g.next_vertex_id ?? (g.vertices.length ? Math.max(...g.vertices.map((v) => v.id)) + 1 : 0),
-      nextSegmentId:
-        g.next_segment_id ??
-        (g.segments.length
-          ? Math.max(...g.segments.map((s) => parseInt(String(s.id).slice(1), 10) || 0)) + 1
-          : 0),
-      nextComponentId:
-        g.next_component_id ??
-        (g.components.length
-          ? Math.max(...g.components.map((c) => parseInt(String(c.id).slice(1), 10) || 0)) + 1
-          : 0),
-    };
+    const isOldFormat =
+      Array.isArray(g.segments) ||
+      (g.components && g.components.some((c) => c.segment_id !== undefined));
+
+    let wire;
+    if (isOldFormat) {
+      wire = convertOldWireGeometry(g);
+    } else {
+      wire = {
+        vertices: g.vertices.map((v) => ({ id: v.id, x: v.x, y: v.y })),
+        wires: (g.wires || []).map((w) => ({ id: w.id, from: w.from, to: w.to })),
+        components: (g.components || []).map((c) => ({
+          id: c.id,
+          from: c.from,
+          to: c.to,
+          type: c.type,
+          value: c.value,
+          ...(c.color !== undefined ? { color: c.color, userColor: true } : {}),
+        })),
+        nextVertexId:
+          g.next_vertex_id ??
+          (g.vertices.length ? Math.max(...g.vertices.map((v) => v.id)) + 1 : 0),
+        nextWireId:
+          g.next_wire_id ??
+          (g.wires && g.wires.length
+            ? Math.max(
+                ...g.wires.map((w) => parseInt(String(w.id).slice(1), 10) || 0),
+              ) + 1
+            : 0),
+        nextComponentId:
+          g.next_component_id ??
+          (g.components && g.components.length
+            ? Math.max(
+                ...g.components.map((c) => parseInt(String(c.id).slice(1), 10) || 0),
+              ) + 1
+            : 0),
+      };
+    }
     return {
       kind: 'wire',
       wire,
-      nodeOverrides: payload.node_overrides || [],
+      nodeOverrides: (payload.node_overrides || []).filter((o) => o.anchor != null),
     };
   }
 

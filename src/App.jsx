@@ -10,133 +10,44 @@ import WirePropertiesPanel from './components/WirePropertiesPanel.jsx';
 import HamiltonianPanel from './components/HamiltonianPanel.jsx';
 import NodeLabelsPanel from './components/NodeLabelsPanel.jsx';
 
-import { ELEMENT_TYPES, downloadJSON, parseImportPayload } from './circuit/index.js';
+import {
+  downloadJSON,
+  nextSchematicSymbol,
+  parseImportPayload,
+  SCHEMATIC_DEFAULT,
+} from './circuit/index.js';
 import {
   EMPTY_WIRE,
-  snapToVertex,
-  snapToSegment,
-  snapToComponent,
-  snapToGrid,
-  snapFraction,
-  snapComponentEnd,
+  SNAP_RADIUS,
+  WIRE_DEFAULT,
+  WIRE_DEFAULT_ANALYSIS,
   addVertex as addWireVertex,
-  addSegment as addWireSegment,
-  deleteSegment as deleteWireSegment,
-  deleteSegmentSlot as deleteWireSegmentSlot,
+  addWire as addWireEdge,
+  autoDetectNodes,
+  canMergeVertexIntoWire,
+  computeHover,
   deleteVertex as deleteWireVertex,
-  splitSegmentAt as splitWireSegmentAt,
-  componentsOnSegment,
-  slotIndexForT,
-  placeComponentOnSegment,
+  deleteWire as deleteWireEdge,
+  gluCoincidentVertices,
+  mergeVertexIntoWire,
+  moveComponentCenter,
   placeStandaloneComponent,
-  mergeVertices,
-  canMergeVertices,
   removeComponent,
+  setComponentColor,
   setComponentType,
   setComponentValue,
-  setComponentColor,
-  setComponentPlacement,
-  autoDetectNodes,
+  snapFraction,
+  snapToGrid,
+  snapToVertex,
+  snapToWire,
+  splitWireAt,
+  splitWireWithComponent,
 } from './wire/index.js';
-
-/** Pick the next symbolic name "C_{k}" / "L_{k}" / "E_J^{k}" not yet
- *  used among the schematic-mode edges. */
-function nextSchematicSymbol(edges, type) {
-  const sym = ELEMENT_TYPES[type].symbol;
-  const used = new Set(edges.map((e) => e.value));
-  let k = 0;
-  let candidate;
-  do {
-    candidate = type === 'JJ' ? `E_J^{${k}}` : `${sym}_{${k}}`;
-    k++;
-  } while (used.has(candidate));
-  return candidate;
-}
-
-/** Nearest segment to (x, y) regardless of distance — used while dragging
- *  a component, so the component always lands on *some* wire. Returns
- *  { id, t } or null if there are no segments. */
-function nearestSegment(wire, x, y) {
-  const vById = new Map(wire.vertices.map((v) => [v.id, v]));
-  let best = null;
-  for (const s of wire.segments) {
-    const a = vById.get(s.from);
-    const b = vById.get(s.to);
-    if (!a || !b) continue;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len2 = dx * dx + dy * dy;
-    if (len2 < 1e-9) continue;
-    let t = ((x - a.x) * dx + (y - a.y) * dy) / len2;
-    t = Math.max(0, Math.min(1, t));
-    const px = a.x + t * dx;
-    const py = a.y + t * dy;
-    const d = Math.hypot(x - px, y - py);
-    if (best === null || d < best.d) best = { id: s.id, t, d };
-  }
-  return best;
-}
-
-import example1 from '../example1.json';
 
 import { useHistory } from './hooks/useHistory.js';
 import { usePanZoom } from './hooks/usePanZoom.js';
 import { useResizablePanel } from './hooks/useResizablePanel.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
-
-/** Resolve which electrical-node sits in a given slot of a wire segment.
- *  Slot 0 belongs to the from-vertex's node; slot N (= number of components)
- *  belongs to the to-vertex's node; intermediate slots are phantom nodes
- *  keyed by the pair of flanking components. */
-function nodeIdForSegmentSlot(wire, wireNodes, segmentId, slotIndex) {
-  const seg = wire.segments.find((s) => s.id === segmentId);
-  if (!seg) return null;
-  const compsOnSeg = wire.components
-    .filter((c) => c.segmentId === segmentId)
-    .sort((p, q) => p.t - q.t);
-  const idx = slotIndex ?? 0;
-  if (idx === 0) {
-    return wireNodes.find((n) => n.vertexIds?.includes(seg.from))?.id ?? null;
-  }
-  if (idx === compsOnSeg.length) {
-    return wireNodes.find((n) => n.vertexIds?.includes(seg.to))?.id ?? null;
-  }
-  const key = `gap:${compsOnSeg[idx - 1].id}:${compsOnSeg[idx].id}`;
-  return wireNodes.find((n) => n.phantomKey === key)?.id ?? null;
-}
-
-const WIRE_DEFAULT_PARSED = parseImportPayload(example1);
-const WIRE_DEFAULT = WIRE_DEFAULT_PARSED.wire;
-const WIRE_DEFAULT_ANALYSIS = autoDetectNodes(
-  WIRE_DEFAULT,
-  {
-    nodes: (WIRE_DEFAULT_PARSED.nodeOverrides || []).map((o) => ({
-      label: o.label,
-      color: o.color,
-      userLabel: !!o.label,
-      userColor: !!o.color,
-      isGround: !!o.is_ground,
-      vertexIds: o.anchor != null ? [o.anchor] : [],
-      phantomKey: o.phantom_key || undefined,
-    })),
-    edges: [],
-  },
-);
-
-const SCHEMATIC_DEFAULT = {
-  nodes: [
-    { id: 0, x: 200, y: 200, label: '\\phi_{0}', isGround: true },
-    { id: 1, x: 400, y: 120, label: '\\phi_{1}', isGround: false },
-    { id: 2, x: 400, y: 280, label: '\\phi_{2}', isGround: false },
-  ],
-  edges: [
-    { id: 'e0', from: 0, to: 1, type: 'JJ', value: 'E_J^{0}' },
-    { id: 'e1', from: 1, to: 2, type: 'L', value: 'L_{0}' },
-    { id: 'e2', from: 0, to: 2, type: 'C', value: 'C_{0}' },
-  ],
-  nextNodeId: 3,
-  nextEdgeId: 3,
-};
 
 export default function App() {
   const [mode, setMode] = useState('wire');
@@ -155,6 +66,9 @@ export default function App() {
   const [connectFrom, setConnectFrom] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [draggingComponentId, setDraggingComponentId] = useState(null);
+  // Offset from cursor to component center at drag start (so the
+  // component stays under the cursor at the same relative position).
+  const componentDragOffset = useRef({ x: 0, y: 0 });
   const [theme, setTheme] = useState('dark');
   const [showEdgeLabels, setShowEdgeLabels] = useState(true);
   const [highlightedNodeId, setHighlightedNodeId] = useState(null);
@@ -298,6 +212,12 @@ export default function App() {
     }));
   }, []);
 
+  const mergeSelectedVertex = useCallback(() => {
+    if (!selected || selected.kind !== 'wireVertex') return;
+    setWire((w) => mergeVertexIntoWire(w, selected.id));
+    setSelected(null);
+  }, [selected]);
+
   const deleteSelected = useCallback(() => {
     if (!selected) return;
     if (selected.type === 'edge') {
@@ -307,12 +227,8 @@ export default function App() {
       setNodes((prev) => prev.filter((n) => n.id !== selected.id));
     } else if (selected.kind === 'wireComponent') {
       setWire((w) => removeComponent(w, selected.id));
-    } else if (selected.kind === 'wireSegment') {
-      if (selected.slotIndex !== undefined) {
-        setWire((w) => deleteWireSegmentSlot(w, selected.id, selected.slotIndex));
-      } else {
-        setWire((w) => deleteWireSegment(w, selected.id));
-      }
+    } else if (selected.kind === 'wire') {
+      setWire((w) => deleteWireEdge(w, selected.id));
     } else if (selected.kind === 'wireVertex') {
       setWire((w) => deleteWireVertex(w, selected.id));
     }
@@ -346,118 +262,14 @@ export default function App() {
 
   // ---- wire-mode hover dispatch ----
 
-  /**
-   * Resolve the cursor position to a "what would happen if you click here"
-   * descriptor. Hover priority: existing vertex → existing segment →
-   * grid-snap (or free placement when shift is held).
-   */
-  const computeHover = useCallback(
-    (pt, shiftKey) => {
-      if (mode !== 'wire') return null;
-      const verts = wire.vertices;
-      const segs = wire.segments;
-      const vById = new Map(verts.map((v) => [v.id, v]));
-      const sById = new Map(segs.map((s) => [s.id, s]));
-
-      const vid = snapToVertex(verts, pt.x, pt.y);
-      if (vid !== null) {
-        const v = vById.get(vid);
-        return { kind: 'vertex', id: vid, x: v.x, y: v.y };
-      }
-
-      // No tool — prefer existing components for selection.
-      if (!selectedTool) {
-        const compHit = snapToComponent(wire, pt.x, pt.y);
-        if (compHit) return { kind: 'component', id: compHit.id };
-      }
-
-      const segHit = snapToSegment(verts, segs, pt.x, pt.y);
-
-      if (selectedTool === 'wire') {
-        if (segHit) {
-          const s = sById.get(segHit.id);
-          const a = vById.get(s.from);
-          const b = vById.get(s.to);
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const len2 = dx * dx + dy * dy;
-          let tFinal = segHit.t;
-          // Default: prefer a grid intersection that lies on (or near) the
-          // segment so wire crossings land cleanly on the grid. Shift skips
-          // this and uses the raw cursor projection.
-          if (!shiftKey && len2 > 1e-9) {
-            const g = snapToGrid(pt.x, pt.y);
-            const tg = ((g.x - a.x) * dx + (g.y - a.y) * dy) / len2;
-            if (tg >= 0 && tg <= 1) {
-              const px = a.x + tg * dx;
-              const py = a.y + tg * dy;
-              if (Math.hypot(g.x - px, g.y - py) < 12) {
-                tFinal = tg;
-              }
-            }
-          }
-          return {
-            kind: 'segment',
-            segmentId: segHit.id,
-            t: tFinal,
-            slotIndex: slotIndexForT(componentsOnSegment(wire, segHit.id), tFinal),
-            x: a.x + tFinal * dx,
-            y: a.y + tFinal * dy,
-          };
-        }
-        if (shiftKey) return { kind: 'free', x: pt.x, y: pt.y };
-        const g = snapToGrid(pt.x, pt.y);
-        return { kind: 'grid', x: g.x, y: g.y };
-      }
-
-      if (selectedTool === 'C' || selectedTool === 'L' || selectedTool === 'JJ') {
-        if (!segHit) return null;
-        const s = sById.get(segHit.id);
-        const a = vById.get(s.from);
-        const b = vById.get(s.to);
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const L = Math.hypot(dx, dy);
-        // End-snap (terminal-on-vertex) wins over fraction-snap when in range.
-        const tEnd = snapComponentEnd(segHit.t, L);
-        const f = tEnd !== segHit.t
-          ? { t: tEnd, label: 'end' }
-          : snapFraction(segHit.t);
-        const tFinal = f.t;
-        return {
-          kind: 'componentOnSegment',
-          segmentId: segHit.id,
-          t: tFinal,
-          x: a.x + tFinal * dx,
-          y: a.y + tFinal * dy,
-          dirX: L > 0 ? dx / L : 1,
-          dirY: L > 0 ? dy / L : 0,
-          snapLabel: f.label,
-        };
-      }
-
-      // No tool, no component hit — fall back to segment for selection.
-      if (segHit) {
-        const s = sById.get(segHit.id);
-        const a = vById.get(s.from);
-        const b = vById.get(s.to);
-        return {
-          kind: 'segment',
-          segmentId: segHit.id,
-          t: segHit.t,
-          slotIndex: slotIndexForT(componentsOnSegment(wire, segHit.id), segHit.t),
-          x: a.x + segHit.t * (b.x - a.x),
-          y: a.y + segHit.t * (b.y - a.y),
-        };
-      }
-      return null;
-    },
+  const hoverFor = useCallback(
+    (pt, shiftKey) => (mode === 'wire' ? computeHover(wire, selectedTool, pt, shiftKey) : null),
     [mode, selectedTool, wire],
   );
 
   const handleWireClick = useCallback(
     (pt, shiftKey) => {
-      const h = computeHover(pt, shiftKey);
+      const h = hoverFor(pt, shiftKey);
 
       if (selectedTool === 'wire') {
         let nextWire = wire;
@@ -467,8 +279,8 @@ export default function App() {
         if (h?.kind === 'vertex') {
           targetVertexId = h.id;
           snappedToExistingVertex = true;
-        } else if (h?.kind === 'segment') {
-          const r = splitWireSegmentAt(nextWire, h.segmentId, h.t);
+        } else if (h?.kind === 'wire') {
+          const r = splitWireAt(nextWire, h.wireId, h.t);
           nextWire = r.wire;
           targetVertexId = r.vertexId;
         } else {
@@ -486,7 +298,7 @@ export default function App() {
           setWire(nextWire);
           setDrawingFromVertexId(null);
         } else {
-          nextWire = addWireSegment(nextWire, drawingFromVertexId, targetVertexId, 'wire');
+          nextWire = addWireEdge(nextWire, drawingFromVertexId, targetVertexId);
           setWire(nextWire);
           // Snap to an existing vertex closes the chain; everything else
           // continues from the new vertex so the user can keep drawing.
@@ -496,11 +308,12 @@ export default function App() {
       }
 
       if (selectedTool === 'C' || selectedTool === 'L' || selectedTool === 'JJ') {
-        if (h?.kind === 'componentOnSegment') {
-          setWire((w) => placeComponentOnSegment(w, h.segmentId, h.t, selectedTool));
+        if (h?.kind === 'componentOnWire') {
+          // Split the wire and insert the component edge in between.
+          setWire((w) => splitWireWithComponent(w, h.wireId, h.t, selectedTool).wire);
         } else {
-          // No segment under the cursor — drop a standalone component
-          // with two free terminal vertices. Snap to grid unless shift.
+          // No wire under the cursor — drop a standalone component
+          // with two free terminal vertices.
           const base = shiftKey ? pt : snapToGrid(pt.x, pt.y);
           setWire((w) => placeStandaloneComponent(w, base.x, base.y, selectedTool).wire);
         }
@@ -516,10 +329,13 @@ export default function App() {
       } else if (h?.kind === 'component') {
         setSelected({ kind: 'wireComponent', id: h.id });
         handleHighlightComponent(h.id);
-      } else if (h?.kind === 'segment') {
-        setSelected({ kind: 'wireSegment', id: h.segmentId, slotIndex: h.slotIndex });
-        const nodeId = nodeIdForSegmentSlot(wire, wireNodes, h.segmentId, h.slotIndex);
-        if (nodeId != null) handleHighlightNode(nodeId);
+      } else if (h?.kind === 'wire') {
+        setSelected({ kind: 'wire', id: h.wireId });
+        const w = wire.wires.find((e) => e.id === h.wireId);
+        const owner = w
+          ? wireNodes.find((n) => n.vertexIds?.includes(w.from))
+          : null;
+        if (owner) handleHighlightNode(owner.id);
         else clearHighlights();
       } else {
         setSelected(null);
@@ -527,7 +343,7 @@ export default function App() {
       }
     },
     [
-      computeHover,
+      hoverFor,
       selectedTool,
       wire,
       wireNodes,
@@ -579,8 +395,6 @@ export default function App() {
         setMode('wire');
         setSelectedTool('wire');
         setWire(parsed.wire);
-        // Apply user node overrides via autoDetectNodes' carry-forward by
-        // synthesizing a fake "previous" snapshot.
         const previousNodes = parsed.nodeOverrides.map((o) => ({
           label: o.label,
           color: o.color,
@@ -588,7 +402,6 @@ export default function App() {
           userColor: !!o.color,
           isGround: !!o.is_ground,
           vertexIds: o.anchor != null ? [o.anchor] : [],
-          phantomKey: o.phantom_key || undefined,
         }));
         const result = autoDetectNodes(parsed.wire, { nodes: previousNodes, edges: [] });
         setWireNodes(result.nodes);
@@ -720,13 +533,10 @@ export default function App() {
         if (mode === 'wire') {
           const base = e.shiftKey ? pt : snapToGrid(pt.x, pt.y);
           setWire((w) => {
-            // Snap visually onto another vertex when within radius and
-            // the resulting merge would be safe (both ends free, no
-            // component lost). The graph stays separate until mouseup.
+            // Snap visually onto another vertex when within radius.
             const others = w.vertices.filter((v) => v.id !== dragging);
             const overId = snapToVertex(others, base.x, base.y);
-            const canSnap = overId !== null && canMergeVertices(w, dragging, overId);
-            const target = canSnap ? others.find((v) => v.id === overId) : base;
+            const target = overId !== null ? others.find((v) => v.id === overId) : base;
             return {
               ...w,
               vertices: w.vertices.map((v) =>
@@ -744,29 +554,68 @@ export default function App() {
 
       if (draggingComponentId !== null) {
         didDragRef.current = true;
-        const hit = nearestSegment(wire, pt.x, pt.y);
-        if (hit) {
-          let tFinal;
-          if (e.shiftKey) {
-            tFinal = hit.t;
-          } else {
-            const seg = wire.segments.find((s) => s.id === hit.id);
-            const a = wire.vertices.find((v) => v.id === seg.from);
-            const b = wire.vertices.find((v) => v.id === seg.to);
-            const Lseg = a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
-            const tEnd = snapComponentEnd(hit.t, Lseg);
-            tFinal = tEnd !== hit.t ? tEnd : snapFraction(hit.t).t;
+        // Where the user wants the component center to be.
+        const off = componentDragOffset.current;
+        const rawX = pt.x - off.x;
+        const rawY = pt.y - off.y;
+
+        setWire((w) => {
+          const c = w.components.find((cc) => cc.id === draggingComponentId);
+          if (!c) return w;
+          // Exclude wires touching this component's endpoints — those
+          // wires move with it and would always project to distance 0.
+          const exclude = new Set(
+            w.wires
+              .filter(
+                (ww) =>
+                  ww.from === c.from || ww.to === c.from || ww.from === c.to || ww.to === c.to,
+              )
+              .map((ww) => ww.id),
+          );
+          // Snap precedence: wire (slide-along) > grid (off the wire).
+          // Shift suppresses both for free-form placement.
+          let snap = null;
+          let centerX = rawX;
+          let centerY = rawY;
+          if (!e.shiftKey) {
+            const hit = snapToWire(w, rawX, rawY, SNAP_RADIUS, exclude);
+            if (hit) {
+              const snapWire = w.wires.find((ww) => ww.id === hit.id);
+              const a = w.vertices.find((v) => v.id === snapWire.from);
+              const b = w.vertices.find((v) => v.id === snapWire.to);
+              if (a && b) {
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const L = Math.hypot(dx, dy);
+                if (L > 1e-6) {
+                  // Magnetic 1/4 / 1/3 / 1/2 / 2/3 / 3/4 snap along the wire.
+                  const tSnap = snapFraction(hit.t);
+                  snap = {
+                    x: a.x + tSnap * dx,
+                    y: a.y + tSnap * dy,
+                    dirX: dx / L,
+                    dirY: dy / L,
+                    maxHalf: (L * 0.9) / 2,
+                  };
+                }
+              }
+            }
+            if (!snap) {
+              const g = snapToGrid(rawX, rawY);
+              centerX = g.x;
+              centerY = g.y;
+            }
           }
-          setWire((w) => setComponentPlacement(w, draggingComponentId, hit.id, tFinal));
-        }
+          return moveComponentCenter(w, draggingComponentId, centerX, centerY, snap);
+        });
         return;
       }
 
       if (mode === 'wire') {
-        setHover(computeHover(pt, e.shiftKey));
+        setHover(hoverFor(pt, e.shiftKey));
       }
     },
-    [dragging, draggingComponentId, wire, panZoom, panel, leftPanel, mode, computeHover],
+    [dragging, draggingComponentId, panZoom, panel, leftPanel, mode, hoverFor],
   );
 
   const onMouseUp = useCallback(() => {
@@ -780,9 +629,8 @@ export default function App() {
           (v) => v.id !== draggedId && Math.hypot(v.x - dv.x, v.y - dv.y) < 0.5,
         );
         if (!overlap) return w;
-        if (!canMergeVertices(w, draggedId, overlap.id)) return w;
         setSelected({ kind: 'wireVertex', id: overlap.id });
-        return mergeVertices(w, draggedId, overlap.id);
+        return gluCoincidentVertices(w, draggedId, overlap.id);
       });
     }
     setDragging(null);
@@ -800,12 +648,12 @@ export default function App() {
     (e) => {
       if (mode !== 'wire') return;
       const pt = panZoom.svgPoint(e);
-      const segHit = snapToSegment(wire.vertices, wire.segments, pt.x, pt.y);
-      if (!segHit) return;
+      const wireHit = snapToWire(wire, pt.x, pt.y);
+      if (!wireHit) return;
       // Avoid double-clicking right on top of an existing vertex.
       if (snapToVertex(wire.vertices, pt.x, pt.y) !== null) return;
       e.stopPropagation();
-      const r = splitWireSegmentAt(wire, segHit.id, segHit.t);
+      const r = splitWireAt(wire, wireHit.id, wireHit.t);
       setWire(r.wire);
       if (r.vertexId !== null) {
         setSelected({ kind: 'wireVertex', id: r.vertexId });
@@ -843,12 +691,23 @@ export default function App() {
       if (selectedTool) return;
       e.preventDefault();
       e.stopPropagation();
+      const c = wire.components.find((cc) => cc.id === componentId);
+      if (c) {
+        const a = wire.vertices.find((v) => v.id === c.from);
+        const b = wire.vertices.find((v) => v.id === c.to);
+        if (a && b) {
+          const cx = (a.x + b.x) / 2;
+          const cy = (a.y + b.y) / 2;
+          const pt = panZoom.svgPoint(e);
+          componentDragOffset.current = { x: pt.x - cx, y: pt.y - cy };
+        }
+      }
       setDraggingComponentId(componentId);
       setSelected({ kind: 'wireComponent', id: componentId });
       setHover(null);
       handleHighlightComponent(componentId);
     },
-    [selectedTool, handleHighlightComponent],
+    [selectedTool, wire, panZoom, handleHighlightComponent],
   );
 
   // ---- render ----
@@ -1004,6 +863,12 @@ export default function App() {
               onSetComponentType={onSetComponentType}
               onSetComponentValue={onSetComponentValue}
               onDelete={deleteSelected}
+              onMergeVertex={mergeSelectedVertex}
+              canMergeVertex={
+                selected?.kind === 'wireVertex'
+                  ? canMergeVertexIntoWire(wire, selected.id)
+                  : false
+              }
             />
           ) : (
             <PropertiesPanel

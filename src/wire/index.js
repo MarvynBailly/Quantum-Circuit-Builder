@@ -5,29 +5,44 @@ export {
   COMPONENT_LENGTH,
   FRACTIONS,
   NODE_PALETTE,
+  DEFAULT_NODE_COLOR,
+} from './constants.js';
+
+export { projectPointOnSegment } from './segmentMath.js';
+
+export {
   snapToGrid,
   snapFraction,
-  snapComponentEnd,
   snapToVertex,
-  snapToSegment,
+  snapToWire,
   snapToComponent,
+} from './snap.js';
+
+export { addWire, deleteWire, splitWireAt } from './wireOps.js';
+
+export {
   addVertex,
-  addSegment,
-  deleteSegment,
-  deleteSegmentSlot,
   deleteVertex,
-  splitSegmentAt,
-  componentsOnSegment,
-  slotIndexForT,
-  nextComponentSymbol,
-  placeComponentOnSegment,
-  placeStandaloneComponent,
   mergeVertices,
   canMergeVertices,
+  gluCoincidentVertices,
+  canMergeVertexIntoWire,
+  mergeVertexIntoWire,
+} from './vertexOps.js';
+
+export {
+  splitWireWithComponent,
+  placeStandaloneComponent,
   removeComponent,
   setComponentType,
   setComponentValue,
   setComponentColor,
-  setComponentPlacement,
-  autoDetectNodes,
-} from './wireModel.js';
+  moveComponentCenter,
+  nextComponentSymbol,
+} from './componentOps.js';
+
+export { autoDetectNodes } from './electricalNodes.js';
+
+export { computeHover } from './hover.js';
+
+export { WIRE_DEFAULT, WIRE_DEFAULT_ANALYSIS } from './defaults.js';

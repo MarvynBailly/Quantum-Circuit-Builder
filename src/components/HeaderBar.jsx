@@ -43,7 +43,7 @@ export default function HeaderBar({ onClear, onExport, onImport }) {
   const fileRef = React.useRef(null);
   return (
     <header style={headerStyle}>
-      <div style={titleStyle}>FLUXONIUM CIRCUIT BUILDER</div>
+      <div style={titleStyle}>QUANTUM CIRCUIT BUILDER</div>
       <button onClick={onClear} style={{ ...ghostBtn, marginLeft: 'auto' }}>
         Clear
       </button>
