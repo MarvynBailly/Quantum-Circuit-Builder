@@ -80,6 +80,23 @@ export default function WirePropertiesPanel({
     );
   }
 
+  if (selected.kind === 'wireGround') {
+    const g = (wire.grounds ?? []).find((gg) => gg.id === selected.id);
+    if (!g) return null;
+    return (
+      <div style={panelStyle}>
+        <div style={headerStyle}>GROUND</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 12 }}>
+          Pins this electrical node to φ = 0. Drag the ⏚ glyph to
+          reposition it — the tip snaps to grid points (Shift = free).
+        </div>
+        <button onClick={onDelete} style={deleteStyle}>
+          Remove ground
+        </button>
+      </div>
+    );
+  }
+
   if (selected.kind === 'wireVertex') {
     return (
       <div style={panelStyle}>

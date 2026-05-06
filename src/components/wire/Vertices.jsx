@@ -16,6 +16,7 @@ function Vertices({
   selectedTool,
   highlightedNodeId,
   onVertexMouseDown,
+  hideVertexDots = false,
 }) {
   return (
     <>
@@ -38,6 +39,14 @@ function Vertices({
                 ? colorForNode(myNodeId)
                 : 'var(--text-secondary)';
         const cursor = selectedTool ? 'pointer' : 'grab';
+        // The toggle hides the static dot for wired vertices but
+        // leaves interaction feedback intact: hover, selection,
+        // drawing-from, and node-highlight all still light up so the
+        // user sees what they're targeting. Terminal-only dots stay
+        // because they identify component endpoints.
+        const isInteracting =
+          isDrawingFrom || vertexSelected || isHover || isHighlighted;
+        const showDot = !hideVertexDots || !isWired || isInteracting;
         return (
           <g key={v.id}>
             <circle
@@ -58,7 +67,9 @@ function Vertices({
                 pointerEvents="none"
               />
             )}
-            <circle cx={v.x} cy={v.y} r={r} fill={fill} pointerEvents="none" />
+            {showDot && (
+              <circle cx={v.x} cy={v.y} r={r} fill={fill} pointerEvents="none" />
+            )}
           </g>
         );
       })}

@@ -59,17 +59,22 @@ export function autoDetectNodes(wire, previous = null) {
   };
   for (const w of wires) union(w.from, w.to);
 
-  // Carry-forward map: anchor vertex id → previous node entry. The
-  // anchor is the smallest vertex id in the node — robust to the user
-  // adding/removing other vertices in the same node.
+  // Carry-forward maps keyed by anchor (smallest vertex id in the
+  // node). Anchor identity is robust to the user adding/removing
+  // other vertices in the same connected component.
+  //   - prevByAnchor: previous node entry (label, color, flags).
+  //   - prevIndex:    previous display position, used to preserve any
+  //                   user-defined ordering across auto-detect runs.
   const prevByAnchor = new Map();
+  const prevIndex = new Map();
   if (previous && previous.nodes) {
-    for (const pn of previous.nodes) {
+    previous.nodes.forEach((pn, i) => {
       if (pn.vertexIds && pn.vertexIds.length) {
         const anchor = Math.min(...pn.vertexIds);
         prevByAnchor.set(anchor, pn);
+        prevIndex.set(anchor, i);
       }
-    }
+    });
   }
 
   // Build node skeletons.
@@ -85,7 +90,16 @@ export function autoDetectNodes(wire, previous = null) {
   const nodes = [];
   const vertexNode = new Map();
   let nodeId = 0;
-  const roots = [...groups.keys()].sort((a, b) => a - b);
+  // Sort by previous-display-index so any user reordering survives a
+  // wire edit. Brand-new nodes (not in prevIndex) sink to the end,
+  // tie-broken by anchor for determinism.
+  const anchorOf = (root) => Math.min(...groups.get(root).map((v) => v.id));
+  const roots = [...groups.keys()].sort((a, b) => {
+    const ia = prevIndex.has(anchorOf(a)) ? prevIndex.get(anchorOf(a)) : Infinity;
+    const ib = prevIndex.has(anchorOf(b)) ? prevIndex.get(anchorOf(b)) : Infinity;
+    if (ia !== ib) return ia - ib;
+    return anchorOf(a) - anchorOf(b);
+  });
   for (const r of roots) {
     const vs = groups.get(r);
     const cx = vs.reduce((acc, v) => acc + v.x, 0) / vs.length;
@@ -137,8 +151,16 @@ export function autoDetectNodes(wire, previous = null) {
   }
 
   // Auto-assign \phi_{k} labels to nodes without a user-set label.
+  // Grounded nodes get pushed to the tail of the index range so the
+  // active (non-grounded) nodes occupy \phi_{0}..\phi_{N-M-1} — which
+  // matches the eliminated-DOF formalism where grounded nodes drop
+  // out of the dynamical Hamiltonian.
+  const ordered = [
+    ...nodes.filter((n) => !n.isGround),
+    ...nodes.filter((n) => n.isGround),
+  ];
   let autoIdx = 0;
-  for (const n of nodes) {
+  for (const n of ordered) {
     if (n.label) continue;
     while (usedLabels.has(`\\phi_{${autoIdx}}`)) autoIdx++;
     n.label = `\\phi_{${autoIdx}}`;

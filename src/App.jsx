@@ -45,6 +45,8 @@ import {
   moveComponentCenter,
   pasteSelection,
   placeStandaloneComponent,
+  removeGround,
+  setGroundOffset,
   snapGroundOffset,
   removeComponent,
   renumberComponentsOfType,
@@ -129,6 +131,25 @@ export default function App() {
   const [connectFrom, setConnectFrom] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [draggingComponentId, setDraggingComponentId] = useState(null);
+  const [draggingGroundId, setDraggingGroundId] = useState(null);
+  // Pulses the existing ⏚ on a node when the user tries to ground it
+  // again. Cleared on a timer so the CSS animation can replay.
+  const [flashingGroundId, setFlashingGroundId] = useState(null);
+  const flashTimeoutRef = useRef(null);
+  const flashGround = useCallback((id) => {
+    if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+    setFlashingGroundId(null);
+    // requestAnimationFrame so React paints null before re-applying the
+    // class — otherwise the same id back-to-back wouldn't restart the
+    // animation.
+    requestAnimationFrame(() => {
+      setFlashingGroundId(id);
+      flashTimeoutRef.current = setTimeout(() => {
+        setFlashingGroundId(null);
+        flashTimeoutRef.current = null;
+      }, 700);
+    });
+  }, []);
   // Multi-drag: when a vertex / component that's part of a 2+ item
   // selection is grabbed, every selected vertex (plus endpoints of
   // selected wires/components) translates together. Snapshot of
@@ -146,6 +167,16 @@ export default function App() {
   const componentDragOffset = useRef({ x: 0, y: 0 });
   const [theme, setTheme] = useState('dark');
   const [showEdgeLabels, setShowEdgeLabels] = useState(true);
+  // When on, the on-canvas labels for grounded nodes are hidden.
+  // The labels panel still shows the row so the user can edit it.
+  // Default to on — the ⏚ glyph already identifies the node, and the
+  // extra φ-label cluttered the canvas right next to it.
+  const [hideGroundedLabels, setHideGroundedLabels] = useState(true);
+  // When on, the colored dots marking wired vertex positions are
+  // hidden. Hit-areas stay so the user can still click to select /
+  // drag, and selection / hover states still light up the dot so the
+  // user gets feedback during interaction.
+  const [hideVertexDots, setHideVertexDots] = useState(false);
   const [highlightedNodeId, setHighlightedNodeId] = useState(null);
   const [highlightedComponentId, setHighlightedComponentId] = useState(null);
   const [focusedItem, setFocusedItem] = useState(null);
@@ -321,17 +352,106 @@ export default function App() {
     }));
   }, []);
 
-  // Reset every electrical-node label to \phi_{0..N-1} in display order.
-  // Clearing userLabel lets the next auto-detect run keep these labels
-  // as the auto-assigned ones (instead of carrying them as user-set).
+  // Recolor every component, regardless of type — used by the
+  // labels-panel "match all components" picker.
+  const setAllComponentColors = useCallback((color) => {
+    setWire((w) => ({
+      ...w,
+      components: w.components.map((c) => ({ ...c, color, userColor: true })),
+    }));
+  }, []);
+
+  // Reset every electrical-node label to \phi_{0..N-1}. Active nodes
+  // are numbered first; grounded ones are pushed to the tail of the
+  // range so they don't take up the low indices (they're eliminated
+  // from the dynamical Hamiltonian anyway). Clearing userLabel lets
+  // the next auto-detect run keep these as the auto-assigned ones.
   const relabelAllNodes = useCallback(() => {
-    setWireNodes((prev) =>
-      prev.map((n, i) => ({ ...n, label: `\\phi_{${i}}`, userLabel: false })),
-    );
+    setWireNodes((prev) => {
+      const active = [];
+      const grounded = [];
+      for (const n of prev) (n.isGround ? grounded : active).push(n);
+      const ordered = [...active, ...grounded];
+      const labelById = new Map();
+      ordered.forEach((n, i) => labelById.set(n.id, `\\phi_{${i}}`));
+      return prev.map((n) => ({
+        ...n,
+        label: labelById.get(n.id),
+        userLabel: false,
+      }));
+    });
   }, []);
 
   const relabelComponentsOfType = useCallback((typeKey) => {
     setWire((w) => renumberComponentsOfType(w, typeKey));
+  }, []);
+
+  // Drag-reorder a row in the ELECTRICAL NODES list. Re-runs the auto
+  // \phi_{k} assignment afterwards so indices follow the new display
+  // order (active first, grounded last); user-set labels are kept.
+  const reorderWireNodes = useCallback((fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    setWireNodes((prev) => {
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= prev.length ||
+        toIndex >= prev.length
+      ) {
+        return prev;
+      }
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      const orderedForLabels = [
+        ...next.filter((n) => !n.isGround),
+        ...next.filter((n) => n.isGround),
+      ];
+      const used = new Set(
+        next.filter((n) => n.userLabel && n.label).map((n) => n.label),
+      );
+      const labelById = new Map();
+      let idx = 0;
+      for (const n of orderedForLabels) {
+        if (n.userLabel) continue;
+        while (used.has(`\\phi_{${idx}}`)) idx++;
+        const label = `\\phi_{${idx}}`;
+        labelById.set(n.id, label);
+        used.add(label);
+        idx++;
+      }
+      return next.map((n) =>
+        n.userLabel || !labelById.has(n.id)
+          ? n
+          : { ...n, label: labelById.get(n.id) },
+      );
+    });
+  }, []);
+
+  // Drag-reorder a row inside a component-type group (C / L / JJ).
+  // Components of other types keep their relative positions; only the
+  // moved type's slice is permuted within wire.components.
+  const reorderComponentsOfType = useCallback((typeKey, fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    setWire((w) => {
+      const ofType = w.components.filter((c) => c.type === typeKey);
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= ofType.length ||
+        toIndex >= ofType.length
+      ) {
+        return w;
+      }
+      const reordered = [...ofType];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, moved);
+      let i = 0;
+      const components = w.components.map((c) =>
+        c.type === typeKey ? reordered[i++] : c,
+      );
+      return { ...w, components };
+    });
   }, []);
 
   const mergeSelectedVertex = useCallback(() => {
@@ -359,9 +479,11 @@ export default function App() {
     const wireComps = selection.filter((s) => s.kind === 'wireComponent').map((s) => s.id);
     const wireWires = selection.filter((s) => s.kind === 'wire').map((s) => s.id);
     const wireVerts = selection.filter((s) => s.kind === 'wireVertex').map((s) => s.id);
-    if (wireComps.length || wireWires.length || wireVerts.length) {
+    const wireGrounds = selection.filter((s) => s.kind === 'wireGround').map((s) => s.id);
+    if (wireComps.length || wireWires.length || wireVerts.length || wireGrounds.length) {
       setWire((w) => {
         let next = w;
+        for (const id of wireGrounds) next = removeGround(next, id);
         for (const id of wireComps) next = removeComponent(next, id);
         for (const id of wireWires) next = deleteWireEdge(next, id);
         for (const id of wireVerts) next = deleteWireVertex(next, id);
@@ -515,12 +637,41 @@ export default function App() {
       if (selectedTool === 'GND') {
         // Two-click placement. Click 1 anchors to a vertex (or splits
         // the wire under the cursor); click 2 sets where the ⏚ glyph
-        // hangs relative to that vertex. Click 1 on an already-grounded
-        // vertex toggles the ground off instead of starting placement.
+        // hangs relative to that vertex. Clicking a node that's
+        // already grounded flashes the existing ⏚ red and refuses to
+        // start placement — the user can use selection + Delete to
+        // remove an existing ground instead.
         if (placingGroundFor === null) {
-          const r = beginGroundAt(wire, pt.x, pt.y);
+          // Locate the electrical node that would receive the ground.
+          // Vertex hover → its owner node. Wire hover → either of the
+          // wire's endpoints belongs to the same node (wires are
+          // intra-node), so checking one suffices.
+          let targetNodeId = null;
+          if (h?.kind === 'vertex') {
+            targetNodeId = wireNodes.find((n) =>
+              n.vertexIds?.includes(h.id),
+            )?.id ?? null;
+          } else if (h?.kind === 'wire') {
+            const w = wire.wires.find((e) => e.id === h.wireId);
+            if (w) {
+              targetNodeId = wireNodes.find((n) =>
+                n.vertexIds?.includes(w.from) || n.vertexIds?.includes(w.to),
+              )?.id ?? null;
+            }
+          }
+          if (targetNodeId !== null) {
+            const ownerNode = wireNodes.find((n) => n.id === targetNodeId);
+            if (ownerNode?.isGround) {
+              const existing = (wire.grounds ?? []).find((g) =>
+                ownerNode.vertexIds?.includes(g.vertexId),
+              );
+              if (existing) flashGround(existing.id);
+              return;
+            }
+          }
+          const r = beginGroundAt(wire, pt.x, pt.y, shiftKey);
           if (r.wire !== wire) setWire(r.wire);
-          if (r.removed || r.vertexId === null) return;
+          if (r.vertexId === null) return;
           const anchor = r.wire.vertices.find((v) => v.id === r.vertexId);
           if (anchor) {
             setPlacingGroundFor({ vertexId: r.vertexId, x: anchor.x, y: anchor.y });
@@ -528,7 +679,7 @@ export default function App() {
           }
         } else {
           const { vertexId, x: ax, y: ay } = placingGroundFor;
-          const off = snapGroundOffset(pt.x - ax, pt.y - ay, shiftKey);
+          const off = snapGroundOffset(ax, ay, pt.x, pt.y, shiftKey);
           setWire((w) => addGround(w, vertexId, off.dx, off.dy));
           setPlacingGroundFor(null);
           setGroundCursor(null);
@@ -601,7 +752,10 @@ export default function App() {
   // The effect refires when isDragging flips back to false, so the
   // post-drag wire state is always analyzed exactly once on release.
   const isDragging =
-    dragging !== null || draggingComponentId !== null || multiDragging;
+    dragging !== null ||
+    draggingComponentId !== null ||
+    draggingGroundId !== null ||
+    multiDragging;
 
   useEffect(() => {
     if (isDragging) return;
@@ -873,6 +1027,19 @@ export default function App() {
         return;
       }
 
+      if (draggingGroundId !== null) {
+        didDragRef.current = true;
+        setWire((w) => {
+          const g = (w.grounds ?? []).find((gg) => gg.id === draggingGroundId);
+          if (!g) return w;
+          const v = w.vertices.find((vv) => vv.id === g.vertexId);
+          if (!v) return w;
+          const off = snapGroundOffset(v.x, v.y, pt.x, pt.y, e.shiftKey);
+          return setGroundOffset(w, draggingGroundId, off.dx, off.dy);
+        });
+        return;
+      }
+
       if (draggingComponentId !== null) {
         didDragRef.current = true;
         // Where the user wants the component center to be.
@@ -939,7 +1106,7 @@ export default function App() {
         }
       }
     },
-    [dragging, draggingComponentId, multiDragging, boxSelect, wire, panZoom, panel, leftPanel, mode, hoverFor, placingGroundFor],
+    [dragging, draggingComponentId, draggingGroundId, multiDragging, boxSelect, wire, panZoom, panel, leftPanel, mode, hoverFor, placingGroundFor],
   );
 
   const onMouseUp = useCallback(() => {
@@ -1066,6 +1233,7 @@ export default function App() {
     }
     setDragging(null);
     setDraggingComponentId(null);
+    setDraggingGroundId(null);
     setMultiDragging(false);
     multiDragRef.current = null;
   }, [panZoom, dragging, multiDragging, mode, boxSelect, wire, setSelected]);
@@ -1074,6 +1242,7 @@ export default function App() {
     panZoom.endPan();
     setDragging(null);
     setDraggingComponentId(null);
+    setDraggingGroundId(null);
     setMultiDragging(false);
     multiDragRef.current = null;
     setBoxSelect(null);
@@ -1178,6 +1347,37 @@ export default function App() {
     [wireNodes, setSelected, handleHighlightNode, clearHighlights, startMultiDrag, panZoom],
   );
 
+  const onWireGroundClick = useCallback(
+    (groundId) => {
+      // Clicking an existing ⏚ while the GND tool is active means
+      // "ground this node again" — refuse and flash instead.
+      if (selectedTool === 'GND' && placingGroundFor === null) {
+        flashGround(groundId);
+      }
+    },
+    [selectedTool, placingGroundFor, flashGround],
+  );
+
+  const onWireGroundMouseDown = useCallback(
+    (groundId, e) => {
+      if (e.button !== 0) return;
+      // Active tool — leave the click to the canvas-level handler so
+      // GND etc. keep working when the cursor passes over a glyph.
+      if (selectedTool) return;
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setHover(null);
+      if (e.shiftKey) {
+        toggleSelection({ kind: 'wireGround', id: groundId });
+        return;
+      }
+      setDraggingGroundId(groundId);
+      setSelected({ kind: 'wireGround', id: groundId });
+    },
+    [selectedTool, toggleSelection, setSelected],
+  );
+
   const onWireComponentMouseDown = useCallback(
     (componentId, e) => {
       if (e.button !== 0) return;
@@ -1276,8 +1476,19 @@ export default function App() {
           onBlurItem={isWireMode ? handleBlurItem : undefined}
           onSetAllNodeColors={isWireMode ? setAllNodeColors : undefined}
           onSetAllComponentColorsOfType={isWireMode ? setAllComponentColorsOfType : undefined}
+          onSetAllComponentColors={isWireMode ? setAllComponentColors : undefined}
           onRelabelAllNodes={isWireMode ? relabelAllNodes : undefined}
           onRelabelComponentsOfType={isWireMode ? relabelComponentsOfType : undefined}
+          onReorderNodes={isWireMode ? reorderWireNodes : undefined}
+          onReorderComponentsOfType={isWireMode ? reorderComponentsOfType : undefined}
+          hideGroundedLabels={hideGroundedLabels}
+          onToggleHideGroundedLabels={
+            isWireMode ? () => setHideGroundedLabels((v) => !v) : undefined
+          }
+          hideVertexDots={hideVertexDots}
+          onToggleHideVertexDots={
+            isWireMode ? () => setHideVertexDots((v) => !v) : undefined
+          }
           collapsed={leftCollapsed}
           onToggleCollapsed={() => setLeftCollapsed((v) => !v)}
         />
@@ -1349,6 +1560,9 @@ export default function App() {
                   selection={selection}
                   onVertexMouseDown={onWireVertexMouseDown}
                   onComponentMouseDown={onWireComponentMouseDown}
+                  onGroundMouseDown={onWireGroundMouseDown}
+                  onGroundClick={onWireGroundClick}
+                  flashingGroundId={flashingGroundId}
                   showLabels={showEdgeLabels}
                   zoom={panZoom.zoom}
                   highlightedNodeId={effectiveHighlightedNodeId}
@@ -1358,6 +1572,8 @@ export default function App() {
                   placingGroundFor={placingGroundFor}
                   cursor={groundCursor}
                   shiftKey={groundCursor?.shiftKey ?? false}
+                  hideGroundedLabels={hideGroundedLabels}
+                  hideVertexDots={hideVertexDots}
                 />
               ) : (
                 <>

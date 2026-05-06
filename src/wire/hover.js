@@ -81,6 +81,40 @@ export function computeHover(wire, selectedTool, pt, shiftKey, vById = null) {
     return { kind: 'grid', x: g.x, y: g.y };
   }
 
+  if (selectedTool === 'GND') {
+    if (wireHit) {
+      const w = wire.wires.find((e) => e.id === wireHit.id);
+      const a = byId.get(w.from);
+      const b = byId.get(w.to);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      let tFinal = wireHit.t;
+      // Same grid-aware snap as the wire tool: prefer a nearby grid
+      // intersection that lies on the wire so anchors land cleanly on
+      // the grid. Shift skips and uses the raw projection.
+      if (!shiftKey && len2 > 1e-9) {
+        const g = snapToGrid(pt.x, pt.y);
+        const tg = ((g.x - a.x) * dx + (g.y - a.y) * dy) / len2;
+        if (tg >= 0 && tg <= 1) {
+          const px = a.x + tg * dx;
+          const py = a.y + tg * dy;
+          if (Math.hypot(g.x - px, g.y - py) < 12) {
+            tFinal = tg;
+          }
+        }
+      }
+      return {
+        kind: 'wire',
+        wireId: wireHit.id,
+        t: tFinal,
+        x: a.x + tFinal * dx,
+        y: a.y + tFinal * dy,
+      };
+    }
+    return null;
+  }
+
   if (selectedTool === 'C' || selectedTool === 'L' || selectedTool === 'JJ') {
     if (wireHit) {
       const w = wire.wires.find((e) => e.id === wireHit.id);

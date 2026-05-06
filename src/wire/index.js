@@ -52,6 +52,7 @@ export {
   remapGroundsAfterMerge,
   removeGround,
   removeGroundsForVertex,
+  setGroundOffset,
   snapGroundOffset,
 } from './groundOps.js';
 

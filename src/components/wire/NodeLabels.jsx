@@ -67,11 +67,12 @@ function nodeLabelPosition(node, wires, vById) {
 }
 
 /** Render LaTeX labels for each electrical node. */
-function NodeLabels({ wireNodes, wires, vById, labelScale, onHighlightNode }) {
+function NodeLabels({ wireNodes, wires, vById, labelScale, onHighlightNode, hideGroundedLabels = false }) {
   return (
     <>
       {wireNodes.map((n) => {
         if (!n.label) return null;
+        if (hideGroundedLabels && n.isGround) return null;
         const pos = nodeLabelPosition(n, wires, vById);
         return (
           <g key={`label-${n.id}`}>
@@ -90,7 +91,7 @@ function NodeLabels({ wireNodes, wires, vById, labelScale, onHighlightNode }) {
               }
             >
               <SvgLatex
-                text={`${n.isGround ? '⏚\\, ' : ''}${n.label}`}
+                text={n.label}
                 x={0}
                 y={0}
                 fontSize={16}

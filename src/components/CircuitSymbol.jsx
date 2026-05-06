@@ -31,18 +31,24 @@ export default function CircuitSymbol({ type, x1, y1, x2, y2, color, wireColor }
   }
 
   if (type === 'L') {
-    const coils = 4;
-    const cw = (len * 0.5) / coils;
-    let d = `M ${-len * 0.25} 0 `;
+    // Fewer coils with a wider span → each coil is longer, so the
+    // sinusoidal-ish shape reads at small zoom levels and small icon
+    // sizes. Coil region runs from -0.3·len to +0.3·len (60% of len);
+    // the leads cover the remaining 20% on each side.
+    const coils = 3;
+    const span = 0.6;
+    const half = (len * span) / 2;
+    const cw = (len * span) / coils;
+    let d = `M ${-half} 0 `;
     for (let i = 0; i < coils; i++) {
-      const sx = -len * 0.25 + i * cw;
+      const sx = -half + i * cw;
       d += `C ${sx + cw * 0.25} -14, ${sx + cw * 0.75} -14, ${sx + cw} 0 `;
     }
     return (
       <g transform={`translate(${mx},${my}) rotate(${angle})`}>
-        <line x1={-len / 2} y1={0} x2={-len * 0.25} y2={0} stroke={w} strokeWidth={2} />
+        <line x1={-len / 2} y1={0} x2={-half} y2={0} stroke={w} strokeWidth={2} />
         <path d={d} fill="none" stroke={c} strokeWidth={2.5} />
-        <line x1={len * 0.25} y1={0} x2={len / 2} y2={0} stroke={w} strokeWidth={2} />
+        <line x1={half} y1={0} x2={len / 2} y2={0} stroke={w} strokeWidth={2} />
       </g>
     );
   }

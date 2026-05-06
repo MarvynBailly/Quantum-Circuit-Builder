@@ -40,6 +40,11 @@ export default function WireLayer({
   placingGroundFor = null,
   cursor = null,
   shiftKey = false,
+  hideGroundedLabels = false,
+  hideVertexDots = false,
+  onGroundMouseDown,
+  onGroundClick,
+  flashingGroundId = null,
 }) {
   const vById = useMemo(
     () => new Map(wire.vertices.map((v) => [v.id, v])),
@@ -109,6 +114,11 @@ export default function WireLayer({
         vById={vById}
         vertexNodeId={vertexNodeId}
         colorForNode={colorForNode}
+        isSelected={isSelected}
+        onGroundMouseDown={onGroundMouseDown}
+        onGroundClick={onGroundClick}
+        flashingGroundId={flashingGroundId}
+        selectedTool={selectedTool}
       />
       <HoverPreview
         wire={wire}
@@ -129,6 +139,7 @@ export default function WireLayer({
         selectedTool={selectedTool}
         highlightedNodeId={highlightedNodeId}
         onVertexMouseDown={onVertexMouseDown}
+        hideVertexDots={hideVertexDots}
       />
       <NodeLabels
         wireNodes={wireNodes}
@@ -136,6 +147,7 @@ export default function WireLayer({
         vById={vById}
         labelScale={labelScale}
         onHighlightNode={onHighlightNode}
+        hideGroundedLabels={hideGroundedLabels}
       />
     </g>
   );

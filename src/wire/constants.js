@@ -22,9 +22,10 @@ export const NODE_PALETTE = [
   '#f87171',
 ];
 
-/** Default color for newly detected electrical nodes. The user can
- *  override per-node from the labels panel. */
-export const DEFAULT_NODE_COLOR = '#e6ebf2';
+/** Default color for newly detected electrical nodes and freshly placed
+ *  components — solid white so every element renders uniformly until the
+ *  user picks something else from the labels panel. */
+export const DEFAULT_NODE_COLOR = '#ffffff';
 
 /** Empty wire model — useful as an initial state. */
 export const EMPTY_WIRE = {

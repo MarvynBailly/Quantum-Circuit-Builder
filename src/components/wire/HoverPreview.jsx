@@ -112,8 +112,10 @@ export default function HoverPreview({
           drives a live preview of where the glyph will land. */}
       {isGroundTool && placingGroundFor !== null && cursor && (() => {
         const off = snapGroundOffset(
-          cursor.x - placingGroundFor.x,
-          cursor.y - placingGroundFor.y,
+          placingGroundFor.x,
+          placingGroundFor.y,
+          cursor.x,
+          cursor.y,
           shiftKey,
         );
         return (
