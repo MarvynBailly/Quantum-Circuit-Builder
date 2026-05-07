@@ -31,10 +31,9 @@
  * @returns {{ matrix: number[][], nodeList: Node[] }}
  */
 export function adjacencyMatrix(nodes, edges) {
-  const sorted = [...nodes].sort((a, b) => a.id - b.id);
   const idx = {};
-  sorted.forEach((n, i) => (idx[n.id] = i));
-  const N = sorted.length;
+  nodes.forEach((n, i) => (idx[n.id] = i));
+  const N = nodes.length;
   const A = Array.from({ length: N }, () => Array(N).fill(0));
 
   for (const edge of edges) {
@@ -45,7 +44,7 @@ export function adjacencyMatrix(nodes, edges) {
     A[j][i]++;
   }
 
-  return { matrix: A, nodeList: sorted };
+  return { matrix: A, nodeList: nodes };
 }
 
 /**
@@ -72,10 +71,9 @@ export function adjacencyMatrix(nodes, edges) {
  * @returns {{ cells: {sign:'+'|'-', term:string}[][][], nodeList: any[] }}
  */
 export function capacitanceMatrix(nodes, edges) {
-  const sorted = [...nodes].sort((a, b) => a.id - b.id);
   const idx = {};
-  sorted.forEach((n, i) => (idx[n.id] = i));
-  const N = sorted.length;
+  nodes.forEach((n, i) => (idx[n.id] = i));
+  const N = nodes.length;
   const full = Array.from({ length: N }, () =>
     Array.from({ length: N }, () => []),
   );
@@ -95,9 +93,9 @@ export function capacitanceMatrix(nodes, edges) {
   // Eliminate grounded nodes: drop their rows and columns so what
   // remains is the dynamical (kinetic) capacitance matrix.
   const liveIndices = [];
-  sorted.forEach((n, i) => { if (!n.isGround) liveIndices.push(i); });
+  nodes.forEach((n, i) => { if (!n.isGround) liveIndices.push(i); });
   const cells = liveIndices.map((i) => liveIndices.map((j) => full[i][j]));
-  const nodeList = liveIndices.map((i) => sorted[i]);
+  const nodeList = liveIndices.map((i) => nodes[i]);
 
   return { cells, nodeList };
 }
