@@ -88,7 +88,7 @@ export default function WirePropertiesPanel({
         <div style={headerStyle}>GROUND</div>
         <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 12 }}>
           Pins this electrical node to φ = 0. Drag the ⏚ glyph to
-          reposition it — the tip snaps to grid points (Shift = free).
+          reposition it.
         </div>
         <button onClick={onDelete} style={deleteStyle}>
           Remove ground

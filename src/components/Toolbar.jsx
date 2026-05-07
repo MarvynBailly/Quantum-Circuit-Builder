@@ -187,7 +187,7 @@ export default function Toolbar({
       )}
       {isWire && (selectedTool === 'C' || selectedTool === 'L' || selectedTool === 'JJ') && (
         <span style={{ fontSize: 12, color: 'var(--accent-amber)' }}>
-          Click anywhere on a wire — snaps to ¼, ⅓, ½, ⅔, ¾
+          Click anywhere on a wire (hold Shift to free-place)
         </span>
       )}
       {isWire && selectedTool === 'GND' && placingGroundFor === null && (

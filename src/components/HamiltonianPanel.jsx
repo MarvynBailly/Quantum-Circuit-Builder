@@ -39,7 +39,7 @@ function CapacitanceMatrix({ nodes, edges }) {
       </div>
       {anyGrounded && (
         <div style={{ marginBottom: 8, fontSize: 10, color: 'var(--text-muted)' }}>
-          Grounded nodes (φ̇ = 0) eliminated — this is the dynamical C.
+          Grounded nodes (φ̇ = 0) eliminated.
         </div>
       )}
       <div style={{ overflowX: 'auto' }}>
