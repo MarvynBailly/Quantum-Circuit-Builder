@@ -222,8 +222,9 @@ export default function HelpModal({ open, onClose, onRunTutorial }) {
               <Row keys={<><Kbd>Ctrl</Kbd>+<Kbd>V</Kbd></>}>
                 Paste — successive pastes spread diagonally so they don't stack.
               </Row>
-              <Row keys={<><Kbd>Ctrl</Kbd>+<Kbd>Q</Kbd></>}>
-                Rotate selection 90° clockwise (hold <Kbd>Shift</Kbd> for counter-clockwise).
+              <Row keys={<><Kbd>Ctrl</Kbd>+<Kbd>Q</Kbd> / <Kbd>R</Kbd></>}>
+                Rotate selection 90° counter-clockwise (hold <Kbd>Shift</Kbd> for clockwise).
+                Also available as the ↺ / ↻ buttons in the toolbar.
               </Row>
               <Row keys={<><Kbd>Ctrl</Kbd>+<Kbd>M</Kbd></>}>
                 Mirror selection horizontally (hold <Kbd>Shift</Kbd> for vertical).

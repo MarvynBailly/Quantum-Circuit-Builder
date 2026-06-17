@@ -59,6 +59,21 @@ function toolButtonStyle(active, color) {
   };
 }
 
+// Square icon button for the rotate controls — bigger glyph, tighter
+// padding than the text tool buttons so the ↺ / ↻ arrows read clearly.
+const rotateButtonStyle = {
+  padding: '4px 12px',
+  border: '2px solid transparent',
+  borderRadius: 8,
+  background: 'transparent',
+  color: 'var(--text-primary)',
+  cursor: 'pointer',
+  fontSize: 18,
+  lineHeight: 1,
+  fontFamily: 'var(--font-mono)',
+  transition: 'all 0.15s',
+};
+
 function modeButtonStyle(active) {
   return {
     padding: '6px 12px',
@@ -84,6 +99,8 @@ export default function Toolbar({
   canRedo,
   onUndo,
   onRedo,
+  onRotate,
+  canRotate = false,
   showEdgeLabels,
   onToggleLabels,
   onResetView,
@@ -171,6 +188,39 @@ export default function Toolbar({
       >
         Redo
       </button>
+
+      {isWire && onRotate && (
+        <>
+          <span style={{ color: 'var(--border)', margin: '0 4px' }}>|</span>
+          <span style={labelStyle}>ROTATE:</span>
+          <button
+            style={{
+              ...rotateButtonStyle,
+              opacity: canRotate ? 1 : 0.3,
+              cursor: canRotate ? 'pointer' : 'not-allowed',
+            }}
+            onClick={() => onRotate(false)}
+            disabled={!canRotate}
+            title="Rotate selection 90° counter-clockwise (R)"
+            aria-label="Rotate selection counter-clockwise"
+          >
+            ↺
+          </button>
+          <button
+            style={{
+              ...rotateButtonStyle,
+              opacity: canRotate ? 1 : 0.3,
+              cursor: canRotate ? 'pointer' : 'not-allowed',
+            }}
+            onClick={() => onRotate(true)}
+            disabled={!canRotate}
+            title="Rotate selection 90° clockwise (Shift+R)"
+            aria-label="Rotate selection clockwise"
+          >
+            ↻
+          </button>
+        </>
+      )}
 
       {!isWire && connectFrom !== null && (
         <span style={{ fontSize: 12, color: 'var(--accent-amber)' }}>Click target node…</span>

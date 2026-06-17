@@ -55,7 +55,6 @@ import {
   setComponentColor,
   setComponentType,
   setComponentValue,
-  snapFraction,
   snapToGrid,
   snapToVertex,
   snapToWire,
@@ -1042,60 +1041,17 @@ export default function App() {
 
       if (draggingComponentId !== null) {
         didDragRef.current = true;
-        // Where the user wants the component center to be.
+        // Translate the component rigidly: move its center, keep its
+        // orientation. A component must only rotate when its underlying
+        // wiring does (i.e. when its endpoint vertices move) — never to
+        // align itself with some unrelated wire it happens to pass near
+        // (dropping never connected it to that wire anyway). Shift
+        // suppresses grid snapping for free-form placement.
         const off = componentDragOffset.current;
         const rawX = pt.x - off.x;
         const rawY = pt.y - off.y;
-
-        setWire((w) => {
-          const c = w.components.find((cc) => cc.id === draggingComponentId);
-          if (!c) return w;
-          // Exclude wires touching this component's endpoints — those
-          // wires move with it and would always project to distance 0.
-          const exclude = new Set(
-            w.wires
-              .filter(
-                (ww) =>
-                  ww.from === c.from || ww.to === c.from || ww.from === c.to || ww.to === c.to,
-              )
-              .map((ww) => ww.id),
-          );
-          // Snap precedence: wire (slide-along) > grid (off the wire).
-          // Shift suppresses both for free-form placement.
-          let snap = null;
-          let centerX = rawX;
-          let centerY = rawY;
-          if (!e.shiftKey) {
-            const hit = snapToWire(w, rawX, rawY, SNAP_RADIUS, exclude, vById);
-            if (hit) {
-              const snapWire = w.wires.find((ww) => ww.id === hit.id);
-              const a = w.vertices.find((v) => v.id === snapWire.from);
-              const b = w.vertices.find((v) => v.id === snapWire.to);
-              if (a && b) {
-                const dx = b.x - a.x;
-                const dy = b.y - a.y;
-                const L = Math.hypot(dx, dy);
-                if (L > 1e-6) {
-                  // Magnetic 1/4 / 1/3 / 1/2 / 2/3 / 3/4 snap along the wire.
-                  const tSnap = snapFraction(hit.t);
-                  snap = {
-                    x: a.x + tSnap * dx,
-                    y: a.y + tSnap * dy,
-                    dirX: dx / L,
-                    dirY: dy / L,
-                    maxHalf: (L * 0.9) / 2,
-                  };
-                }
-              }
-            }
-            if (!snap) {
-              const g = snapToGrid(rawX, rawY);
-              centerX = g.x;
-              centerY = g.y;
-            }
-          }
-          return moveComponentCenter(w, draggingComponentId, centerX, centerY, snap);
-        });
+        const center = e.shiftKey ? { x: rawX, y: rawY } : snapToGrid(rawX, rawY);
+        setWire((w) => moveComponentCenter(w, draggingComponentId, center.x, center.y));
         return;
       }
 
@@ -1456,6 +1412,8 @@ export default function App() {
         canRedo={canRedo}
         onUndo={undo}
         onRedo={redo}
+        onRotate={rotateSelectionBy}
+        canRotate={isWireMode && selection.length > 0}
         showEdgeLabels={showEdgeLabels}
         onToggleLabels={() => setShowEdgeLabels((v) => !v)}
         onResetView={() => panZoom.fitToNodes(isWireMode ? wire.vertices : nodes)}

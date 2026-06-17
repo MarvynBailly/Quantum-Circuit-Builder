@@ -6,7 +6,7 @@ import { useEffect } from 'react';
  *   Ctrl/Cmd+Shift+Z / +Y → redo
  *   Ctrl/Cmd+C            → onCopy()
  *   Ctrl/Cmd+V            → onPaste()
- *   Ctrl/Cmd+Q            → onRotate()        (Shift inverts direction)
+ *   Ctrl/Cmd+Q / R        → onRotate()        (Shift inverts direction)
  *   Ctrl/Cmd+M            → onMirror('horizontal')   (Shift = vertical)
  *   Escape                → onEscape()
  *   Delete / Backspace    → onDelete()
@@ -64,6 +64,17 @@ export function useKeyboardShortcuts({
         return;
       }
       if (mod && (e.key === 'q' || e.key === 'Q')) {
+        if (inInput) return;
+        if (!onRotate) return;
+        e.preventDefault();
+        onRotate(e.shiftKey);
+        return;
+      }
+      // Plain R rotates the selection too — a one-key alternative to
+      // Ctrl+Q. Requires no modifier so it never hijacks Ctrl+R
+      // (browser reload), and yields to text inputs so labels can
+      // still contain the letter.
+      if (!mod && (e.key === 'r' || e.key === 'R')) {
         if (inInput) return;
         if (!onRotate) return;
         e.preventDefault();

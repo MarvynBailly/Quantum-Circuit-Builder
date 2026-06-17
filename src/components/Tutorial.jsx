@@ -768,9 +768,10 @@ const stepRotate = {
   title: 'Rotate the selection',
   body: (
     <p>
-      <span style={kbd}>Ctrl</span>+<span style={kbd}>Q</span> rotates the
-      selection 90° clockwise around its center. Hold{' '}
-      <span style={kbd}>Shift</span> to rotate counter-clockwise.
+      <span style={kbd}>Ctrl</span>+<span style={kbd}>Q</span> (or just{' '}
+      <span style={kbd}>R</span>, or the ↺ button in the toolbar) rotates the
+      selection 90° counter-clockwise around its center. Hold{' '}
+      <span style={kbd}>Shift</span> (or use ↻) to rotate clockwise.
     </p>
   ),
   anim: (
