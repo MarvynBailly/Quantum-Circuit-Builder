@@ -3,6 +3,8 @@ import {
   adjacencyMatrix,
   capacitanceMatrix,
   formatSymbolicSum,
+  inductanceMatrix,
+  josephsonMatrix,
 } from '../physics/hamiltonian.js';
 import InlineLatex from './InlineLatex.jsx';
 
@@ -11,6 +13,54 @@ const sectionHeader = (color, text) => (
     {text}
   </div>
 );
+
+/** Shared renderer for a labelled symbolic matrix (cells are arrays of
+ *  {sign, term}; row/col headers come from nodeList). */
+function SymbolicMatrixTable({ cells, nodeList }) {
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}></th>
+            {nodeList.map((n) => (
+              <th key={n.id} style={thStyle}>
+                <InlineLatex text={n.label} />
+                {n.isGround ? '⏚' : ''}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {nodeList.map((ni, i) => (
+            <tr key={ni.id}>
+              <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
+                <InlineLatex text={ni.label} />
+                {ni.isGround ? '⏚' : ''}
+              </td>
+              {nodeList.map((nj, j) => {
+                const expr = formatSymbolicSum(cells[i][j]);
+                return (
+                  <td
+                    key={nj.id}
+                    style={{
+                      ...tdStyle,
+                      textAlign: 'center',
+                      color: expr === '0' ? 'var(--border)' : 'var(--text-primary)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <InlineLatex text={expr} />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function CapacitanceMatrix({ nodes, edges }) {
   const { cells, nodeList } = capacitanceMatrix(nodes, edges);
@@ -42,47 +92,65 @@ function CapacitanceMatrix({ nodes, edges }) {
           Grounded nodes (φ̇ = 0) eliminated.
         </div>
       )}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <thead>
-            <tr>
-              <th style={thStyle}></th>
-              {nodeList.map((n) => (
-                <th key={n.id} style={thStyle}>
-                  <InlineLatex text={n.label} />
-                  {n.isGround ? '⏚' : ''}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {nodeList.map((ni, i) => (
-              <tr key={ni.id}>
-                <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
-                  <InlineLatex text={ni.label} />
-                  {ni.isGround ? '⏚' : ''}
-                </td>
-                {nodeList.map((nj, j) => {
-                  const expr = formatSymbolicSum(cells[i][j]);
-                  return (
-                    <td
-                      key={nj.id}
-                      style={{
-                        ...tdStyle,
-                        textAlign: 'center',
-                        color: expr === '0' ? 'var(--border)' : 'var(--text-primary)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <InlineLatex text={expr} />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <SymbolicMatrixTable cells={cells} nodeList={nodeList} />
+    </section>
+  );
+}
+
+function InductanceMatrix({ nodes, edges }) {
+  const { cells, nodeList } = inductanceMatrix(nodes, edges);
+  const hasInductors = edges.some((e) => e.type === 'L');
+  const anyGrounded = nodes.some((n) => n.isGround);
+
+  return (
+    <section style={{ marginTop: 20 }}>
+      {sectionHeader('var(--text-secondary)', 'INDUCTIVE ENERGY MATRIX')}
+      {!hasInductors || nodeList.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+          No inductors — inductive potential is zero.
+        </div>
+      ) : (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            <InlineLatex
+              text={'U_{\\text{ind}} = \\tfrac{1}{2}\\sum_{ij} (E_L)_{ij}\\, \\phi_i \\phi_j'}
+            />
+          </div>
+          <div style={{ marginBottom: 8, fontSize: 10, color: 'var(--text-muted)' }}>
+            <InlineLatex text={'E_L = \\varphi_0^{2}/L,\\ \\ \\varphi_0 = \\hbar/2e'} />
+            {anyGrounded ? ' · grounded nodes (φ = 0) eliminated' : ''}
+          </div>
+          <SymbolicMatrixTable cells={cells} nodeList={nodeList} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function JosephsonMatrix({ nodes, edges }) {
+  const { cells, nodeList } = josephsonMatrix(nodes, edges);
+  const hasJJ = edges.some((e) => e.type === 'JJ');
+
+  return (
+    <section style={{ marginTop: 20 }}>
+      {sectionHeader('var(--text-secondary)', 'JOSEPHSON COUPLING MATRIX')}
+      {!hasJJ ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+          No Josephson junctions — Josephson potential is zero.
+        </div>
+      ) : (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            <InlineLatex
+              text={'U_{\\text{JJ}} = -\\sum_{i<j} [E_J]_{ij}\\, \\cos(\\phi_i - \\phi_j)'}
+            />
+          </div>
+          <div style={{ marginBottom: 8, fontSize: 10, color: 'var(--text-muted)' }}>
+            Entry (i, j) is the junction&rsquo;s E_J; ground is kept (φ = 0 there).
+          </div>
+          <SymbolicMatrixTable cells={cells} nodeList={nodeList} />
+        </>
+      )}
     </section>
   );
 }
@@ -226,6 +294,10 @@ function HamiltonianPanel({
           </section>
 
           <CapacitanceMatrix nodes={nodes} edges={edges} />
+
+          <InductanceMatrix nodes={nodes} edges={edges} />
+
+          <JosephsonMatrix nodes={nodes} edges={edges} />
         </>
       ) : (
         <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
