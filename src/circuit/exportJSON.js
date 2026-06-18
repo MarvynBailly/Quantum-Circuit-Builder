@@ -7,7 +7,13 @@
  * diagram. Schematic-mode exports preserve node positions directly.
  */
 
-import { adjacencyMatrix, capacitanceMatrix, formatSymbolicSum } from '../physics/hamiltonian.js';
+import {
+  adjacencyMatrix,
+  capacitanceMatrix,
+  formatSymbolicSum,
+  inductanceMatrix,
+  josephsonMatrix,
+} from '../physics/hamiltonian.js';
 import { COMPONENT_LENGTH, DEFAULT_GROUND_OFFSET } from '../wire/index.js';
 
 /**
@@ -25,6 +31,10 @@ export function buildExportPayload(nodes, edges, extra = {}) {
   const adj = adjacencyMatrix(nodes, edges);
   const cap = capacitanceMatrix(nodes, edges);
   const capacitance = cap.cells.map((row) => row.map((cell) => formatSymbolicSum(cell)));
+  const ind = inductanceMatrix(nodes, edges);
+  const inductance = ind.cells.map((row) => row.map((cell) => formatSymbolicSum(cell)));
+  const jj = josephsonMatrix(nodes, edges);
+  const josephson = jj.cells.map((row) => row.map((cell) => formatSymbolicSum(cell)));
 
   const payload = {
     _meta: {
@@ -50,6 +60,14 @@ export function buildExportPayload(nodes, edges, extra = {}) {
     capacitance_matrix: {
       node_order: cap.nodeList.map((n) => n.id),
       cells: capacitance,
+    },
+    inductance_matrix: {
+      node_order: ind.nodeList.map((n) => n.id),
+      cells: inductance,
+    },
+    josephson_matrix: {
+      node_order: jj.nodeList.map((n) => n.id),
+      cells: josephson,
     },
   };
 
