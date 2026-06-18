@@ -7,15 +7,15 @@ The builder calls the backend cross-origin (`/api/submit` has CORS). No
 Porkbun / nameserver changes are needed.
 
 ```
-GitHub Pages (builder) ──POST qcb.pages.dev/api/submit (code)──▶ D1 (pending)
-you ──qcb.pages.dev/.../review.html (Access)──▶ /api/admin/* ──▶ D1 (approved)
-desktop worker ──qcb.pages.dev/api/jobs (Bearer)──▶ compute ─ email ─ /api/jobs/:id ──▶ D1 (done)
+GitHub Pages (builder) ──POST qcb-6qe.pages.dev/api/submit (code)──▶ D1 (pending)
+you ──qcb-6qe.pages.dev/.../review.html (Access)──▶ /api/admin/* ──▶ D1 (approved)
+desktop worker ──qcb-6qe.pages.dev/api/jobs (Bearer)──▶ compute ─ email ─ /api/jobs/:id ──▶ D1 (done)
 ```
 
 Secrets never reach the browser. Spam is blocked by invite codes + the manual
 approval gate.
 
-> This guide names the Cloudflare project **`qcb`** → `https://qcb.pages.dev`.
+> This guide names the Cloudflare project **`qcb`** → `https://qcb-6qe.pages.dev`.
 > `.github/workflows/deploy.yml` already sets `VITE_API_BASE` to that URL. If
 > you use a different project name, change it in both places.
 
@@ -25,7 +25,7 @@ approval gate.
 2. Dashboard → **Workers & Pages → Create → Pages → Connect to Git** → pick
    `Quantum-Circuit-Builder`. Build command `npm run build`, output `dist`,
    framework preset **None**. Name the project **`qcb`**.
-3. Deploy. You get `https://qcb.pages.dev`. (Its `/api/*` will 500 until the
+3. Deploy. You get `https://qcb-6qe.pages.dev`. (Its `/api/*` will 500 until the
    database + token below exist — that's expected.)
 
 The Cloudflare build serves the functions, the D1-backed API, and the review
@@ -56,11 +56,11 @@ Bind it: project → **Settings → Functions → D1 database bindings** → add
 ## 4. Cloudflare Access (restrict the reviewer side to you)
 
 Dashboard → **Zero Trust → Access → Applications → Add a self-hosted
-application**, allow only your email, on these paths (on the `qcb.pages.dev`
+application**, allow only your email, on these paths (on the `qcb-6qe.pages.dev`
 host):
 
-- `qcb.pages.dev/Quantum-Circuit-Builder/review.html` — the reviewer dashboard
-- `qcb.pages.dev/api/admin/*` — the admin API (the real boundary)
+- `qcb-6qe.pages.dev/Quantum-Circuit-Builder/review.html` — the reviewer dashboard
+- `qcb-6qe.pages.dev/api/admin/*` — the admin API (the real boundary)
 
 Leave `/api/submit` and `/api/jobs/*` unprotected (code-gated and token-gated
 respectively).
@@ -82,14 +82,14 @@ Codes print to your terminal — hand them out. Disable one with
 
 ## 7. Point the live builder at the backend
 
-`deploy.yml` already builds with `VITE_API_BASE=https://qcb.pages.dev`. Push to
+`deploy.yml` already builds with `VITE_API_BASE=https://qcb-6qe.pages.dev`. Push to
 `main` → the GitHub Pages Action redeploys the builder so its **Submit for
 verification** button posts to your Cloudflare API.
 
 ## 8. Desktop worker
 
 See `worker/README.md`. Set `.env`:
-`API_BASE=https://qcb.pages.dev`, `WORKER_TOKEN` (same as step 3),
+`API_BASE=https://qcb-6qe.pages.dev`, `WORKER_TOKEN` (same as step 3),
 `RESEND_API_KEY`, `MAIL_FROM`. Then `python worker.py`.
 
 ## Local testing (no Cloudflare account needed)

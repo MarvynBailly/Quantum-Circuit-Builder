@@ -29,7 +29,7 @@ jobs:
         # lives on the Cloudflare Pages project. Point cross-origin /api
         # calls at it. Must match your Cloudflare project's *.pages.dev URL.
         env:
-          VITE_API_BASE: https://qcb.pages.dev
+          VITE_API_BASE: https://qcb-6qe.pages.dev
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
