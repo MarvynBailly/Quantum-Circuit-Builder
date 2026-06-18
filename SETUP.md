@@ -37,11 +37,15 @@ origin.
 ```bash
 npm i -g wrangler && wrangler login
 wrangler d1 create qcb
+# put the printed database_id into wrangler.toml ([[d1_databases]].database_id),
+# then commit + push — this binds D1 for the deployed functions.
 wrangler d1 migrations apply qcb --remote
 ```
 
-Bind it: project → **Settings → Functions → D1 database bindings** → add `DB`
-→ `qcb`. Then redeploy (Deployments → ⋯ → Retry).
+The `[[d1_databases]]` block in `wrangler.toml` (with a real `database_id`)
+binds D1 for both the deployed Pages Functions and the `wrangler` CLI, so no
+dashboard D1 binding is needed. After the push, redeploy if it didn't auto-build
+(Deployments → ⋯ → Retry).
 
 ## 3. Secrets / vars (Cloudflare project → Settings → Environment variables, Production)
 
@@ -98,7 +102,7 @@ npm run build
 wrangler d1 migrations apply qcb --local
 node scripts/gen-codes.mjs 1 local > codes.sql
 wrangler d1 execute qcb --local --file=codes.sql
-wrangler pages dev dist --d1 DB=qcb --binding WORKER_TOKEN=localsecret   # serves site + functions
+wrangler pages dev dist --binding WORKER_TOKEN=localsecret   # serves site + functions
 ```
 
 Submit from the local site (same-origin, so no CORS needed locally), inspect

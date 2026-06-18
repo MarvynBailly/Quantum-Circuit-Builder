@@ -7,13 +7,13 @@ name = "qcb"
 compatibility_date = "2024-11-01"
 pages_build_output_dir = "dist"
 
-# D1 database binding (variable name DB):
-#   - Production: bind it in the Pages dashboard
-#       Settings -> Functions -> D1 database bindings -> DB -> qcb
-#     (kept out of this file so a placeholder id can't fail the build).
-#   - Local dev: pass it on the CLI instead, e.g.
-#       wrangler pages dev dist --d1 DB=qcb --binding WORKER_TOKEN=localsecret
-#
-# One-time, by the account owner:
-#   wrangler d1 create qcb
-#   wrangler d1 migrations apply qcb --remote
+# D1 binding (the functions read env.DB). The database_id is the real one
+# from `wrangler d1 create qcb` — not a secret. This binds D1 for both the
+# deployed Pages Functions and `wrangler d1 ...` / `wrangler pages dev`.
+[[d1_databases]]
+binding = "DB"
+database_name = "qcb"
+database_id = "39d9e8d2-fbf5-4fb9-8f25-95483f4f006b"
+
+# Set WORKER_TOKEN (and optional ALLOWED_ORIGIN) as encrypted env vars in the
+# Pages dashboard — secrets stay out of this file.
