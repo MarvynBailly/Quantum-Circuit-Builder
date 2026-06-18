@@ -41,16 +41,17 @@ export function requireWorker(request, env) {
 }
 
 /**
- * Gate for the admin endpoints. The real identity check is Cloudflare
- * Access at the edge — it blocks unauthenticated requests before they
- * reach this function. When CF_ACCESS_AUD is configured we additionally
- * require the Access assertion header (defense-in-depth); in local dev
- * (no Access, env unset) this is a no-op so /review works.
+ * Gate for the admin (reviewer) endpoints. Requires a shared password
+ * via `Authorization: Bearer ${ADMIN_TOKEN}`. The review page prompts
+ * for it and sends it on every admin call; share the password with your
+ * team's reviewers. Returns a Response on failure, or null when authed.
  */
-export function requireAccess(request, env) {
-  if (env.CF_ACCESS_AUD) {
-    const jwt = request.headers.get('cf-access-jwt-assertion');
-    if (!jwt) return json({ error: 'forbidden' }, 403);
+export function requireAdmin(request, env) {
+  if (!env.ADMIN_TOKEN) return json({ error: 'admin auth not configured' }, 500);
+  const auth = request.headers.get('authorization') || '';
+  const m = /^Bearer\s+(.+)$/i.exec(auth);
+  if (!m || !safeEqual(m[1], env.ADMIN_TOKEN)) {
+    return json({ error: 'unauthorized' }, 401);
   }
   return null;
 }
@@ -81,8 +82,8 @@ export function isEmail(s) {
 export function corsHeaders(env) {
   return {
     'access-control-allow-origin': (env && env.ALLOWED_ORIGIN) || '*',
-    'access-control-allow-methods': 'POST, OPTIONS',
-    'access-control-allow-headers': 'content-type',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': 'content-type, authorization',
     'access-control-max-age': '86400',
     vary: 'Origin',
   };

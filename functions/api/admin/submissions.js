@@ -1,19 +1,27 @@
-// GET /api/admin/submissions?status=pending — Cloudflare Access gated.
+// GET /api/admin/submissions?status=pending — password gated (ADMIN_TOKEN).
 // Lists submissions (newest first) with parsed circuit + values so the
 // review page can render them.
 
-import { json, requireAccess } from '../../_lib.js';
+import { json, requireAdmin, corsHeaders } from '../../_lib.js';
 
 const ALLOWED = new Set(['pending', 'approved', 'rejected', 'done', 'error']);
 
+export function onRequestOptions({ env }) {
+  return new Response(null, { status: 204, headers: corsHeaders(env) });
+}
+
 export async function onRequestGet({ request, env }) {
-  const denied = requireAccess(request, env);
-  if (denied) return denied;
-  if (!env.DB) return json({ error: 'database not configured' }, 500);
+  const cors = corsHeaders(env);
+  const denied = requireAdmin(request, env);
+  if (denied) {
+    for (const [k, v] of Object.entries(cors)) denied.headers.set(k, v);
+    return denied;
+  }
+  if (!env.DB) return json({ error: 'database not configured' }, 500, cors);
 
   const url = new URL(request.url);
   const status = url.searchParams.get('status') || 'pending';
-  if (!ALLOWED.has(status)) return json({ error: 'invalid status' }, 400);
+  if (!ALLOWED.has(status)) return json({ error: 'invalid status' }, 400, cors);
 
   const { results } = await env.DB.prepare(
     `SELECT id, created_at, email, code, status, circuit_json, values_json,
@@ -40,7 +48,7 @@ export async function onRequestGet({ request, env }) {
     completed_at: r.completed_at,
   }));
 
-  return json({ submissions });
+  return json({ submissions }, 200, cors);
 }
 
 function safeParse(s) {

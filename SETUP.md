@@ -49,24 +49,28 @@ dashboard D1 binding is needed. After the push, redeploy if it didn't auto-build
 
 ## 3. Secrets / vars (Cloudflare project → Settings → Environment variables, Production)
 
-- `WORKER_TOKEN` — a random secret (`openssl rand -hex 24`). The desktop worker
-  uses the same value.
-- `ALLOWED_ORIGIN` *(optional)* — `https://marvyn.com` to lock the submit CORS
-  to your site (defaults to `*`).
-- `CF_ACCESS_AUD` *(optional)* — to make the admin functions also require the
-  Access assertion header (defense-in-depth).
+- `ADMIN_TOKEN` — the shared **reviewer password**. The review page prompts for
+  it; gate for `/api/admin/*`. Share it with your team's reviewers; rotate by
+  changing it here.
+- `WORKER_TOKEN` — a random secret (`openssl rand -hex 24`) for the desktop
+  worker (`/api/jobs/*`). The worker uses the same value. Keep this one private
+  (not shared with reviewers).
+- `ALLOWED_ORIGIN` *(optional)* — `https://marvyn.com` to lock CORS to your site
+  (defaults to `*`).
 
-## 4. Cloudflare Access (restrict the reviewer side to you)
+Redeploy after adding/changing these (Deployments → ⋯ → Retry) so they apply.
 
-Dashboard → **Zero Trust → Access → Applications → Add a self-hosted
-application**, allow only your email, on these paths (on the `qcb-6qe.pages.dev`
-host):
+## 4. Reviewer access (shared password — no Cloudflare Access needed)
 
-- `qcb-6qe.pages.dev/Quantum-Circuit-Builder/review.html` — the reviewer dashboard
-- `qcb-6qe.pages.dev/api/admin/*` — the admin API (the real boundary)
+The reviewer side is gated by the `ADMIN_TOKEN` password above, not Cloudflare
+Access. Reviewers open `https://qcb-6qe.pages.dev/Quantum-Circuit-Builder/review.html`,
+enter the password once (stored in their browser), and can approve/reject.
+`/api/admin/*` rejects anything without the password, so the page is safe to be
+publicly reachable. If you previously created a Cloudflare Access app for these
+paths, delete it so it doesn't double-gate the page.
 
-Leave `/api/submit` and `/api/jobs/*` unprotected (code-gated and token-gated
-respectively).
+`/api/submit` (code-gated) and `/api/jobs/*` (worker-token-gated) need no
+further protection.
 
 ## 5. Resend (outbound email — desktop only)
 
