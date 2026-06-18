@@ -37,7 +37,6 @@ origin.
 ```bash
 npm i -g wrangler && wrangler login
 wrangler d1 create qcb
-# paste the printed database_id into wrangler.toml ([[d1_databases]].database_id)
 wrangler d1 migrations apply qcb --remote
 ```
 
@@ -99,7 +98,7 @@ npm run build
 wrangler d1 migrations apply qcb --local
 node scripts/gen-codes.mjs 1 local > codes.sql
 wrangler d1 execute qcb --local --file=codes.sql
-wrangler pages dev dist --binding WORKER_TOKEN=localsecret   # serves site + functions
+wrangler pages dev dist --d1 DB=qcb --binding WORKER_TOKEN=localsecret   # serves site + functions
 ```
 
 Submit from the local site (same-origin, so no CORS needed locally), inspect
