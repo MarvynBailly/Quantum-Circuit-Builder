@@ -26,7 +26,7 @@ import json
 import requests
 from dotenv import load_dotenv
 
-from energies import compute_energies
+from symbolic import compute_symbolic
 
 load_dotenv()
 
@@ -62,34 +62,21 @@ def post_result(job_id, *, result=None, error=None):
 
 
 def render_email(result):
-    """Plain-text summary of the computed energies."""
-    lines = ["Your circuit was verified. Computed energies (GHz):", ""]
-
-    ch = result.get("charging") or {}
-    if ch.get("per_node_EC_GHz"):
-        lines.append("Charging energies E_C per node:")
-        for row in ch["per_node_EC_GHz"]:
-            lines.append(f"  node {row['node_id']}: E_C = {row['EC_GHz']:.4f} GHz")
+    """Plain-text summary of the symbolic result (matrices in LaTeX)."""
+    lines = ["Your circuit was reviewed. Symbolic result — the matrix product C · L · J:", ""]
+    if result.get("node_order"):
+        lines.append("Node order: " + ", ".join(str(x) for x in result["node_order"]))
+        lines.append(f"Basis: {result.get('basis', '')}")
         lines.append("")
-    elif ch.get("note"):
-        lines.append(f"Charging: {ch['note']}")
-        lines.append("")
-
-    if result.get("inductive"):
-        lines.append("Inductive energies E_L:")
-        for row in result["inductive"]:
-            lines.append(
-                f"  {row['symbol']}: L = {row['L_nH']} nH -> E_L = {row['E_L_GHz']:.4f} GHz"
-            )
-        lines.append("")
-
-    if result.get("josephson"):
-        lines.append("Josephson energies E_J:")
-        for row in result["josephson"]:
-            lines.append(f"  {row['symbol']}: E_J = {row['E_J_GHz']:.4f} GHz")
-        lines.append("")
-
-    lines.append("Full machine-readable results are attached below as JSON:")
+    lines.append("Product  C · L · J  (LaTeX):")
+    lines.append("  " + result.get("product_latex", ""))
+    lines.append("")
+    lines.append("Input matrices (LaTeX):")
+    lines.append("  C = " + result.get("capacitance_latex", ""))
+    lines.append("  L = " + result.get("inductive_latex", ""))
+    lines.append("  J = " + result.get("josephson_latex", ""))
+    lines.append("")
+    lines.append("Full machine-readable result (JSON):")
     lines.append("")
     lines.append(json.dumps(result, indent=2))
     return "\n".join(lines)
@@ -125,7 +112,7 @@ def process_job(job):
     job_id = job["id"]
     print(f"- job {job_id} for {job.get('email')}")
     try:
-        result = compute_energies(job["circuit"], job.get("values", {}))
+        result = compute_symbolic(job["circuit"])
     except Exception as exc:  # noqa: BLE001 — report any compute failure back
         print(f"  ! compute error: {exc}")
         post_result(job_id, error=f"compute error: {exc}")

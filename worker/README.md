@@ -1,7 +1,7 @@
 # Desktop verification worker
 
 Polls the Cloudflare Pages API for **approved** circuit submissions,
-computes the energies locally (numpy), records the result, and emails the
+computes a **symbolic** result locally (sympy), records it, and emails the
 submitter (Resend). It only makes outbound HTTPS calls — nothing listens
 on this machine.
 
@@ -18,7 +18,7 @@ cp .env.example .env        # then fill it in
 
 | var              | meaning                                                        |
 |------------------|----------------------------------------------------------------|
-| `API_BASE`       | site root serving the functions, e.g. `https://marvyn.com`      |
+| `API_BASE`       | Cloudflare backend base, e.g. `https://qcb-6qe.pages.dev`        |
 | `WORKER_TOKEN`   | must equal the `WORKER_TOKEN` secret set in Cloudflare Pages    |
 | `RESEND_API_KEY` | Resend API key (stays on this machine)                          |
 | `MAIL_FROM`      | a verified Resend sender, e.g. `QCB <verify@yourdomain>`        |
@@ -29,20 +29,22 @@ cp .env.example .env        # then fill it in
 ```bash
 python worker.py          # loop forever (normal operation)
 python worker.py --once   # drain the current approved queue, then exit
-python energies.py        # self-test the energy math on a demo circuit
+python symbolic.py        # self-test the symbolic math on a demo circuit
 ```
 
-## What it computes (all in GHz)
+## What it computes (symbolic)
 
-- **Charging**: capacitance matrix (grounds eliminated) -> `C^-1`;
-  charging-energy matrix `2 e^2 C^-1 / h`, and per-node
-  `E_C = (e^2/2)(C^-1)_ii / h`.
-- **Inductive**: `E_L = phi0^2 / L` per inductor (`phi0 = hbar/2e`).
-- **Josephson**: `E_J` passed through (entered in GHz).
+Rebuilds three symbolic matrices from the submitted topology, on the live
+(non-grounded) node basis, and returns their matrix product **C · L · J**:
 
-Conventions match the JS app (`src/physics/`) and Lin et al.
-(arXiv:2512.05851). A circuit with no capacitors reports "no charging
-term" rather than failing.
+- **C** — capacitance graph-Laplacian (symbols are the capacitor labels).
+- **L** — inductive graph-Laplacian (inductor labels).
+- **J** — Josephson adjacency matrix (junction labels).
+
+Entries stay fully symbolic via `sympy`; the result is returned as LaTeX
+(`product_latex`) plus a cell grid (`product_cells`). Putting all three on
+the live-node basis makes them conformable (junction-to-ground terms drop
+out). No numeric values are involved.
 
 ## Keep it running
 
