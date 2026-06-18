@@ -117,6 +117,7 @@ function InductanceMatrix({ nodes, edges }) {
             />
           </div>
           <div style={{ marginBottom: 8, fontSize: 10, color: 'var(--text-muted)' }}>
+            Each inductor is shown by its label; its inductive energy is{' '}
             <InlineLatex text={'E_L = \\varphi_0^{2}/L,\\ \\ \\varphi_0 = \\hbar/2e'} />
             {anyGrounded ? ' · grounded nodes (φ = 0) eliminated' : ''}
           </div>

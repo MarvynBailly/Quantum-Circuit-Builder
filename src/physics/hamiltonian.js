@@ -123,9 +123,12 @@ function laplacianMatrix(nodes, edges, typeKey, termFn) {
 /**
  * Build the (symbolic) inductive-energy matrix from inductor edges.
  * Same Laplacian stamping as the capacitance matrix, with each inductor
- * contributing its inductive energy E_L = φ_0²/L (displayed as the
- * symbol E_{L_k}), and grounded nodes eliminated. The inductive
- * potential energy is the quadratic form (Lin et al. Eq. (1))
+ * contributing its inductive energy E_L = φ_0²/L. Each contribution is
+ * displayed by the inductor's own user label (e.g. "L_{0}"), so the
+ * matrix matches the symbols shown on the canvas and in the labels
+ * panel — exactly like the capacitance and Josephson matrices. Grounded
+ * nodes are eliminated. The inductive potential energy is the quadratic
+ * form (Lin et al. Eq. (1))
  *
  *   U_inductors = ½ Σ_ij (E_L)_ij φ_i φ_j
  *
@@ -133,7 +136,7 @@ function laplacianMatrix(nodes, edges, typeKey, termFn) {
  * E_L = φ_0²/L and φ_0 = ℏ/2e the reduced flux quantum.
  */
 export function inductanceMatrix(nodes, edges) {
-  return laplacianMatrix(nodes, edges, 'L', (e) => `E_{${e.value}}`);
+  return laplacianMatrix(nodes, edges, 'L', (e) => String(e.value));
 }
 
 /**

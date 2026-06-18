@@ -206,23 +206,29 @@ function SubmissionCard({ submission, busy, onApprove, onReject }) {
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
             COMPONENT VALUES
           </div>
-          <table style={{ borderCollapse: 'collapse', fontSize: 12 }}>
-            <tbody>
-              {Object.entries(values || {}).map(([edgeId, v]) => {
-                const e = edgeById.get(edgeId);
-                return (
-                  <tr key={edgeId}>
-                    <td style={{ padding: '2px 10px 2px 0' }}>
-                      {e ? <InlineLatex text={String(e.value)} /> : edgeId}
-                    </td>
-                    <td style={{ padding: '2px 0', color: 'var(--text-primary)' }}>
-                      {v.magnitude} {v.unit}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {Object.keys(values || {}).length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Symbolic submission — no numeric values.
+            </div>
+          ) : (
+            <table style={{ borderCollapse: 'collapse', fontSize: 12 }}>
+              <tbody>
+                {Object.entries(values).map(([edgeId, v]) => {
+                  const e = edgeById.get(edgeId);
+                  return (
+                    <tr key={edgeId}>
+                      <td style={{ padding: '2px 10px 2px 0' }}>
+                        {e ? <InlineLatex text={String(e.value)} /> : edgeId}
+                      </td>
+                      <td style={{ padding: '2px 0', color: 'var(--text-primary)' }}>
+                        {v.magnitude} {v.unit}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
             <button style={approveBtn} onClick={onApprove} disabled={busy}>
