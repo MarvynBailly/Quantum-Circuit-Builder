@@ -5,18 +5,29 @@
 //   circuit — buildExportPayload() topology (nodes/edges/...)
 //   values  — { [edgeId]: { magnitude:Number, unit:'fF'|'nH'|'GHz' } }
 
-import { json, readJson, newId, isEmail, corsHeaders } from '../_lib.js';
+import {
+  json,
+  readJson,
+  newId,
+  isEmail,
+  corsHeaders,
+  sendResendEmail,
+  escapeHtml,
+} from '../_lib.js';
 
 // Cap how many un-reviewed submissions a single code can have queued at
 // once, so a leaked code can't flood the review queue.
 const MAX_PENDING_PER_CODE = 20;
+
+const DEFAULT_REVIEW_URL = 'https://marvyn.com/Quantum-Circuit-Builder/review.html';
 
 // Preflight for the cross-origin POST from the builder.
 export function onRequestOptions({ env }) {
   return new Response(null, { status: 204, headers: corsHeaders(env) });
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost(context) {
+  const { request, env } = context;
   const cors = corsHeaders(env);
   const reply = (data, status) => json(data, status, cors);
 
@@ -74,6 +85,26 @@ export async function onRequestPost({ request, env }) {
     ),
     env.DB.prepare('UPDATE codes SET used = used + 1 WHERE code = ?').bind(code),
   ]);
+
+  // Notify the reviewer with a deep-link to this submission's preview.
+  // Fired in the background so it never delays or fails the submission;
+  // a no-op until Resend (+ NOTIFY_EMAIL) is configured.
+  if (env.NOTIFY_EMAIL) {
+    const reviewUrl = env.REVIEW_URL || DEFAULT_REVIEW_URL;
+    const link = `${reviewUrl}?id=${id}`;
+    const safeEmail = escapeHtml(email);
+    const send = sendResendEmail(env, {
+      to: env.NOTIFY_EMAIL,
+      subject: `New circuit submission from ${email}`,
+      text: `New circuit submission from ${email}.\n\nReview it: ${link}\n\nSubmission id: ${id}`,
+      html:
+        `<p>New circuit submission from <strong>${safeEmail}</strong>.</p>` +
+        `<p><a href="${link}">Open the submitted preview &rarr;</a></p>` +
+        `<p style="color:#888">Submission id: <code>${id}</code></p>`,
+    });
+    if (context.waitUntil) context.waitUntil(send);
+    else await send;
+  }
 
   return reply({ id, status: 'pending' }, 201);
 }

@@ -89,6 +89,13 @@ function Dashboard({ token, onUnauthorized, onLock }) {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
+  // Deep-link from the notification email: review.html?id=<id> focuses
+  // that submission (sorted to the top + highlighted).
+  const focusId =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('id')
+      : null;
+
   const authHeaders = useCallback(
     (extra = {}) => ({ Authorization: `Bearer ${token}`, ...extra }),
     [token],
@@ -168,28 +175,42 @@ function Dashboard({ token, onUnauthorized, onLock }) {
           <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No pending submissions.</div>
         )}
 
+        {focusId && !loading && !submissions.some((s) => s.id === focusId) && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 12 }}>
+            The linked submission isn&rsquo;t in the pending queue (already decided?). Showing all pending.
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {submissions.map((s) => (
-            <SubmissionCard
-              key={s.id}
-              submission={s}
-              busy={busyId === s.id}
-              onApprove={() => decide(s.id, 'approved')}
-              onReject={() => decide(s.id, 'rejected')}
-            />
-          ))}
+          {[...submissions]
+            .sort((a, b) => (a.id === focusId ? -1 : b.id === focusId ? 1 : 0))
+            .map((s) => (
+              <SubmissionCard
+                key={s.id}
+                submission={s}
+                busy={busyId === s.id}
+                focused={s.id === focusId}
+                onApprove={() => decide(s.id, 'approved')}
+                onReject={() => decide(s.id, 'rejected')}
+              />
+            ))}
         </div>
       </div>
     </div>
   );
 }
 
-function SubmissionCard({ submission, busy, onApprove, onReject }) {
+function SubmissionCard({ submission, busy, focused, onApprove, onReject }) {
   const { circuit, values } = submission;
   const edgeById = new Map((circuit?.edges || []).map((e) => [e.id, e]));
 
   return (
-    <div style={card}>
+    <div style={focused ? { ...card, border: '2px solid var(--accent-amber)' } : card}>
+      {focused && (
+        <div style={{ color: 'var(--accent-amber)', fontSize: 11, marginBottom: 8 }}>
+          ↳ opened from your notification
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
         <ReadOnlyCircuit circuit={circuit} />
 

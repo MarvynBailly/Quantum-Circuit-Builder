@@ -72,6 +72,36 @@ export function isEmail(s) {
   return typeof s === 'string' && s.length <= 254 && EMAIL_RE.test(s);
 }
 
+/** Minimal HTML escaping for values interpolated into email HTML. */
+export function escapeHtml(s) {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]),
+  );
+}
+
+/**
+ * Best-effort email send via the Resend REST API. Returns false (never
+ * throws) when not configured or on failure, so callers can fire it
+ * without risking the main request. Requires RESEND_API_KEY + MAIL_FROM.
+ */
+export async function sendResendEmail(env, { to, subject, text, html }) {
+  if (!env.RESEND_API_KEY || !env.MAIL_FROM || !to) return false;
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject, text, html }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * CORS headers for the public submit endpoint, which is called
  * cross-origin from the GitHub-Pages-hosted builder. Set ALLOWED_ORIGIN

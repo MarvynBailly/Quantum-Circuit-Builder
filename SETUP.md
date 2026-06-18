@@ -55,8 +55,15 @@ dashboard D1 binding is needed. After the push, redeploy if it didn't auto-build
 - `WORKER_TOKEN` — a random secret (`openssl rand -hex 24`) for the desktop
   worker (`/api/jobs/*`). The worker uses the same value. Keep this one private
   (not shared with reviewers).
+- `NOTIFY_EMAIL` — your email; gets a "new submission" notification with a
+  deep-link to the review page each time someone submits. Omit to disable.
+- `RESEND_API_KEY` + `MAIL_FROM` — Resend key + a verified sender, so the
+  notification email can be sent from the function. (The desktop worker needs
+  the same two in its own `.env` for the result email.)
 - `ALLOWED_ORIGIN` *(optional)* — `https://marvyn.com` to lock CORS to your site
   (defaults to `*`).
+- `REVIEW_URL` *(optional)* — review-page URL used in the notification link
+  (defaults to `https://marvyn.com/Quantum-Circuit-Builder/review.html`).
 
 Redeploy after adding/changing these (Deployments → ⋯ → Retry) so they apply.
 
