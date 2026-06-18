@@ -11,6 +11,7 @@ import HamiltonianPanel from './components/HamiltonianPanel.jsx';
 import NodeLabelsPanel from './components/NodeLabelsPanel.jsx';
 import HelpModal from './components/HelpModal.jsx';
 import Tutorial from './components/Tutorial.jsx';
+import SubmitModal from './components/SubmitModal.jsx';
 
 const TUTORIAL_DISMISSED_KEY = 'quantum-circuit-builder:tutorial:dismissed:v1';
 
@@ -187,6 +188,7 @@ export default function App() {
   // checkbox. Just closing the tutorial keeps it returning next time
   // — that surprised users who expected it to stay available.
   const [helpOpen, setHelpOpen] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(() => {
     try {
       return localStorage.getItem(TUTORIAL_DISMISSED_KEY) !== '1';
@@ -1398,6 +1400,7 @@ export default function App() {
         }}
         onImport={handleImportFile}
         onOpenHelp={() => setHelpOpen(true)}
+        onSubmitForVerification={() => setSubmitOpen(true)}
       />
 
       <Toolbar
@@ -1629,6 +1632,17 @@ export default function App() {
         open={tutorialOpen}
         onClose={() => setTutorialOpen(false)}
         onDismissForever={dismissTutorialForever}
+      />
+      <SubmitModal
+        open={submitOpen}
+        onClose={() => setSubmitOpen(false)}
+        nodes={analysisNodes}
+        edges={analysisEdges}
+        extra={
+          isWireMode
+            ? { wire, wireNodes, view: { theme, showEdgeLabels, pan: panZoom.pan, zoom: panZoom.zoom } }
+            : { schematicNodes: nodes, view: { theme, showEdgeLabels, pan: panZoom.pan, zoom: panZoom.zoom } }
+        }
       />
     </div>
   );

@@ -25,6 +25,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        # The builder is served from GitHub Pages but the verification API
+        # lives on the Cloudflare Pages project. Point cross-origin /api
+        # calls at it. Must match your Cloudflare project's *.pages.dev URL.
+        env:
+          VITE_API_BASE: https://qcb.pages.dev
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

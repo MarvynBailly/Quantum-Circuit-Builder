@@ -39,7 +39,7 @@ const primaryBtn = {
   fontFamily: 'inherit',
 };
 
-export default function HeaderBar({ onClear, onExport, onImport, onOpenHelp }) {
+export default function HeaderBar({ onClear, onExport, onImport, onOpenHelp, onSubmitForVerification }) {
   const fileRef = React.useRef(null);
   return (
     <header style={headerStyle}>
@@ -68,8 +68,15 @@ export default function HeaderBar({ onClear, onExport, onImport, onOpenHelp }) {
       <button onClick={() => fileRef.current?.click()} style={ghostBtn}>
         Import JSON
       </button>
-      <button onClick={onExport} style={primaryBtn}>
+      <button onClick={onExport} style={ghostBtn}>
         Export JSON
+      </button>
+      <button
+        onClick={onSubmitForVerification}
+        style={primaryBtn}
+        title="Send this circuit to be reviewed and numerically verified"
+      >
+        Submit for verification
       </button>
     </header>
   );

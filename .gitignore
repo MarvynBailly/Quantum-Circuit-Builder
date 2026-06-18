@@ -6,3 +6,10 @@ dist/
 
 reference.pdf
 private/
+
+# Cloudflare Wrangler local state + secrets
+.wrangler/
+.dev.vars
+# generated invite-code SQL (contains live codes)
+codes.sql
+.tmp-*

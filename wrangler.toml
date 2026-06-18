@@ -1,0 +1,21 @@
+# Cloudflare Pages configuration for the Quantum Circuit Builder.
+#
+# The static site builds to dist/ (Vite). Pages Functions live in
+# /functions and are served at the project root (e.g. marvyn.com/api/...).
+#
+# Setup (one-time, run by the account owner):
+#   wrangler d1 create qcb            # copy the printed database_id below
+#   wrangler d1 migrations apply qcb  # create the tables
+# Also set the WORKER_TOKEN secret in the Pages project (Settings ->
+# Environment variables) — it authenticates the desktop worker.
+
+name = "quantum-circuit-builder"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "dist"
+
+# D1 binding used by functions/* and `wrangler pages dev`.
+# Replace database_id with the value printed by `wrangler d1 create qcb`.
+[[d1_databases]]
+binding = "DB"
+database_name = "qcb"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
