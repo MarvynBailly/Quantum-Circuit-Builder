@@ -16,7 +16,8 @@ Large superconducting quantum circuits are difficult to analyze from first princ
 - **Smart vertex deletion** — *Delete* drops the wires meeting at a vertex (components stay, with disconnected terminals). *Merge into wire* folds a degree-2 corner into a single straight wire.
 - **Wire-separation invariant** — two components can never share a vertex; the system inserts a (possibly zero-length) wire between adjacent component endpoints so the shared electrical node is always visible.
 - **Stable identity across edits** — user-set labels, colors, and ground flags survive unrelated topology changes. Auto-assigned `\phi_k` labels reflow around them.
-- **Symbolic component values** — capacitors, inductors, and junctions hold LaTeX strings (`C_0`, `E_J^1`, ...). The capacitance and adjacency matrices are rendered symbolically.
+- **Symbolic component values** — capacitors, inductors, and junctions hold LaTeX strings (`C_0`, `E_J^1`, ...). The adjacency, capacitance, inductive-energy, and Josephson-coupling matrices are all rendered symbolically.
+- **Submit for verification** — send a circuit (invite-code gated) for manual review; on approval a desktop worker computes a symbolic result and emails it back. See [`SETUP.md`](SETUP.md).
 - **Snap ergonomics** — magnetic grid snap for vertices and standalone components, magnetic 1/4 / 1/3 / 1/2 / 2/3 / 3/4 fraction snap when placing or sliding a component along a wire, and a universal Shift override to break either snap.
 - **Hover-driven previews** — a single `computeHover()` resolves the cursor to a descriptor that drives both the ghost preview and the click handler, so what you see is always what you'll get.
 - **Pan, zoom, fit-view**, and independently resizable left/right panels.
@@ -44,7 +45,8 @@ npm run dev
 4. **Edit a vertex** — select it and choose *Delete* (drops incident wires; components keep their endpoints) or *Merge into wire* (collapses a degree-2 corner into one straight wire).
 5. **Edit identity** — the left panel lists every auto-detected electrical node. Rename it (LaTeX), recolor it, or mark it as ground.
 6. **Edit values** — click a component to open the right-side properties panel and rename its symbolic value.
-7. **Read the physics** — the right panel shows the adjacency and capacitance matrices, regenerated symbolically as you edit.
+7. **Read the physics** — the right panel shows the adjacency, capacitance, inductive-energy, and Josephson-coupling matrices, regenerated symbolically as you edit.
+8. **Submit** — use *Submit for verification* in the header to send the circuit (with an invite code + your email) for review.
 
 ### Legacy mode
 
@@ -58,7 +60,7 @@ npm run dev
 |---|---|
 | `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y` | Undo / redo |
 | `Ctrl+C` / `Ctrl+V` | Copy / paste current selection (paste lands offset; press repeatedly to chain) |
-| `Ctrl+Q` / `Ctrl+Shift+Q` | Rotate selection 90° counter-clockwise / clockwise around its centroid |
+| `R` / `Shift+R` (or `Ctrl+Q` / `Ctrl+Shift+Q`) | Rotate selection 90° counter-clockwise / clockwise (also the ↺ / ↻ buttons in the toolbar) |
 | `Esc` | Clear active tool, then deselect |
 | `Delete` / `Backspace` | Remove current selection (every item in a multi-select) |
 | `Shift`+click | Add/remove from selection (no tool active) |
@@ -106,6 +108,10 @@ src/
 │       └── HoverPreview.jsx
 └── hooks/                      # useHistory, usePanZoom, useResizablePanel, useKeyboardShortcuts
 ```
+
+## Verification pipeline
+
+Beyond the in-browser tool, a lightweight pipeline lets people submit circuits for review. The static app posts to a Cloudflare Pages backend (D1 queue); an invite code gates submissions, a password-protected reviewer page approves them, and a Python worker on a desktop machine computes a symbolic result and emails the submitter. Architecture and setup are in [`SETUP.md`](SETUP.md); the worker lives in [`worker/`](worker/).
 
 ## Exported JSON format
 
