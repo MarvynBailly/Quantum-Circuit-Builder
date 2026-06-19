@@ -13,3 +13,7 @@ private/
 # generated invite-code SQL (contains live codes)
 codes.sql
 .tmp-*
+# never commit real env files anywhere (placeholders live in *.example)
+.env
+.env.*
+!.env.example
